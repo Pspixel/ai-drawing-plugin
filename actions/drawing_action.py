@@ -25,7 +25,7 @@ class AIDrawingAction(BaseAction):
     action_require = [
         "当用户明确要求生成图片、绘画、画图时使用",
         "当用户描述了想要的图像内容时使用",
-        "当用户要求画你自己、画自画像、画机器人自己时，请在 prompt 中使用机器人的外观描述。机器人外观：a cute anime girl with blue hair and blue eyes, smiling, wearing a white dress（这是默认外观，实际外观请从配置文件 bot.appearance_description 读取）",
+        "当用户要求画你自己、画自画像、画机器人自己时，必须从配置文件 bot.appearance_description 读取机器人外观描述，并将其作为 prompt 参数传入",
         "重要：prompt 参数必须使用英文标签，不要使用中文。将用户的中文描述转换为英文标签",
         "标签示例：人物特征(loli, girl, boy)、发色(white hair, black hair, blonde hair)、发型(long hair, short hair, twin tails, ponytail)、眼睛(red eyes, blue eyes, green eyes)、服装(dress, school uniform, maid outfit)、动作(standing, sitting, running, smiling)、配饰(cat ears, glasses, ribbon, hat)",
     ]
