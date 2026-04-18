@@ -13,6 +13,22 @@ class AIDrawingAction(BaseAction):
     action_description = "使用 Stable Diffusion 生成 AI 图像"
     activation_type = ActionActivationType.ALWAYS  # 始终激活
 
+    def __init__(self, *args, **kwargs):
+        """初始化 Action，动态加载机器人外观描述"""
+        super().__init__(*args, **kwargs)
+
+        # 动态获取机器人外观描述
+        bot_appearance = self.get_config("bot.appearance_description", "")
+
+        # 构建动态的 action_require
+        self.action_require = [
+            "当用户明确要求生成图片、绘画、画图时使用",
+            "当用户描述了想要的图像内容时使用",
+            f"当用户要求画你自己、画自画像、画机器人自己时，使用以下机器人外观描述作为 prompt: {bot_appearance}",
+            "重要：prompt 参数必须使用英文标签，不要使用中文。将用户的中文描述转换为英文标签",
+            "标签示例：人物特征(loli, girl, boy)、发色(white hair, black hair, blonde hair)、发型(long hair, short hair, twin tails, ponytail)、眼睛(red eyes, blue eyes, green eyes)、服装(dress, school uniform, maid outfit)、动作(standing, sitting, running, smiling)、配饰(cat ears, glasses, ribbon, hat)",
+        ]
+
     # === 功能描述 ===
     action_parameters = {
         "prompt": "图像的内容描述词，必须使用英文标签（tags），用逗号分隔。例如: loli, kawaii, white hair, long hair, cat ears, red eyes, short two side up, cat_tail, smile, standing",
@@ -21,13 +37,7 @@ class AIDrawingAction(BaseAction):
         "height": "图像高度（可选，默认使用配置文件）",
         "enable_hr": "是否启用高分修复（可选，默认使用配置文件）",
     }
-    action_require = [
-        "当用户明确要求生成图片、绘画、画图时使用",
-        "当用户描述了想要的图像内容时使用",
-        "当用户要求画自己的自画像时，使用配置中的机器人外观描述作为 prompt",
-        "重要：prompt 参数必须使用英文标签，不要使用中文。将用户的中文描述转换为英文标签",
-        "标签示例：人物特征(loli, girl, boy)、发色(white hair, black hair, blonde hair)、发型(long hair, short hair, twin tails, ponytail)、眼睛(red eyes, blue eyes, green eyes)、服装(dress, school uniform, maid outfit)、动作(standing, sitting, running, smiling)、配饰(cat ears, glasses, ribbon, hat)",
-    ]
+
     action_examples = [
         {
             "user_input": "画一个可爱的猫耳萝莉，白色长发，红色眼睛",
