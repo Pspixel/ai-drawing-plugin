@@ -1,0 +1,241 @@
+# ============================================
+# AI 绘图插件配置文件
+# ============================================
+# 基于 Stable Diffusion WebUI API 的 AI 绘图插件
+# 为 MaiBot 提供强大的图像生成能力
+#
+# 配置文件版本: 1.0.0
+# 最后更新: 2026-04-18
+# ============================================
+
+
+# ============================================
+# 插件基本配置
+# ============================================
+[plugin]
+
+# 是否启用插件
+# 设置为 true 以启用 AI 绘图功能
+enabled = false
+
+# 配置文件版本
+# 用于配置文件的版本管理和兼容性检查
+config_version = "1.0.0"
+
+# 调试模式
+# 启用后会在聊天中显示详细的 prompt 组合信息和生成参数
+# 用于检查 prompt 是否正确传递给 Stable Diffusion API
+# 建议：开发调试时启用，正式使用时关闭
+debug_mode = false
+
+
+# ============================================
+# Stable Diffusion API 配置
+# ============================================
+[api]
+
+# Stable Diffusion WebUI API 地址
+# 确保你的 SD WebUI 已启动并开启了 API 功能
+# 启动命令: python launch.py --api
+base_url = "http://localhost:7860"
+
+
+# ============================================
+# 图像生成参数配置
+# ============================================
+[generation]
+
+# --------------------------------------------
+# 提示词配置
+# --------------------------------------------
+
+# 质量提示词（Quality Prompt）
+# 只能在配置文件中修改，用于提升图像质量
+# 这部分提示词会自动添加到所有生成请求的最前面
+# 推荐内容: 画质相关的关键词，如 masterpiece, best quality, highly detailed 等
+quality_prompt = "masterpiece, best quality, highly detailed"
+
+# 内容提示词（Content Prompt）
+# 可由 Action/Command 组件动态设置，描述图像的具体内容
+# 留空表示不设置默认内容提示词，完全由用户或机器人决定
+# 示例: "anime style, colorful", "realistic photo", "oil painting"
+content_prompt = ""
+
+# 负面提示词（Negative Prompt）
+# 用于排除不想要的元素，提升图像质量
+# 这部分会告诉 AI 不要生成什么内容
+# 注意: 使用 (word:1.5) 可以增加该词的权重，最高可到 (word:2.0)
+# NSFW 过滤: 使用高权重的 nsfw, nude, explicit 等词可以降低但不能完全阻止 NSFW 内容
+negative_prompt = "(nsfw:1.5), (nude:1.5), (explicit:1.5), lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry"
+
+
+# --------------------------------------------
+# 图像尺寸配置
+# --------------------------------------------
+
+# 图像宽度（像素）
+# 常用尺寸: 512, 768, 1024
+# 注意: 尺寸越大，生成时间越长，显存占用越多
+width = 512
+
+# 图像高度（像素）
+# 常用尺寸: 512, 768, 1024
+height = 512
+
+
+# --------------------------------------------
+# 采样参数配置
+# --------------------------------------------
+
+# 采样步数
+# 范围: 10-50
+# 推荐: 20-30（质量与速度的平衡）
+# 步数越多，图像质量越好，但生成时间越长
+steps = 20
+
+# 提示词相关性（CFG Scale）
+# 范围: 1.0-20.0
+# 推荐: 7.0-12.0
+# 值越高，图像越符合提示词，但可能过度饱和
+cfg_scale = 7.0
+
+# 采样器名称
+# 不同采样器会产生不同的图像风格和质量
+# 推荐采样器:
+#   - "Euler a": 快速，适合初次尝试
+#   - "DPM++ 2M Karras": 质量好，速度适中（推荐）
+#   - "DPM++ SDE Karras": 质量最好，速度较慢
+sampler_name = "Euler a"
+
+# 调度器类型
+# 留空使用默认调度器
+# 可选值: "Karras", "Exponential", "Polyexponential"
+scheduler = ""
+
+
+# --------------------------------------------
+# 高分修复配置
+# --------------------------------------------
+
+# 是否启用高分修复
+# 启用后可以生成更高分辨率的图片
+# 注意: 会显著增加生成时间和显存占用
+enable_hr = false
+
+# 高分修复放大倍数
+# 范围: 1.5-4.0
+# 推荐: 2.0
+# 最终分辨率 = width * hr_scale × height * hr_scale
+hr_scale = 2.0
+
+# 高分修复使用的放大器
+# 推荐放大器:
+#   - "Latent": 速度快，质量一般
+#   - "R-ESRGAN 4x+": 质量好，速度较慢（推荐）
+#   - "R-ESRGAN 4x+ Anime6B": 适合动漫风格
+hr_upscaler = "Latent"
+
+# 去噪强度
+# 范围: 0.0-1.0
+# 推荐: 0.6-0.8
+# 值越高，高分修复时的变化越大
+denoising_strength = 0.7
+
+
+# --------------------------------------------
+# 采样器和调度器列表
+# --------------------------------------------
+
+# 可用的采样器列表
+# 用于 /sampler 命令切换
+# 你可以根据需要添加或删除采样器
+available_samplers = [
+    "Euler a",
+    "Euler",
+    "DPM++ 2M Karras",
+    "DPM++ SDE Karras",
+    "DPM++ 2M SDE",
+    "DDIM",
+    "LMS"
+]
+
+# 可用的调度器列表
+# 用于 /scheduler 命令切换
+available_schedulers = [
+    "Automatic",
+    "Karras",
+    "Exponential",
+    "Polyexponential"
+]
+
+
+# ============================================
+# 机器人相关配置
+# ============================================
+[bot]
+
+# 机器人的外观描述
+# 用于自画像功能，当用户要求机器人画自己时使用
+# 可以使用英文描述，支持 Stable Diffusion 的提示词格式
+# 示例:
+#   - "a cute anime girl with blue hair and blue eyes, smiling, wearing a white dress"
+#   - "a robot with metallic body, glowing eyes, futuristic design"
+#   - "a cat girl with pink hair, cat ears, maid outfit"
+appearance_description = "a cute anime girl with blue hair and blue eyes, smiling, wearing a white dress"
+
+
+# ============================================
+# 提示词组合说明
+# ============================================
+#
+# 最终发送给 Stable Diffusion 的提示词组合顺序:
+#
+# 1. Action 组件调用时:
+#    quality_prompt + action_content_prompt (或 config_content_prompt) + user_prompt
+#
+# 2. Command 组件调用时:
+#    quality_prompt + config_content_prompt + user_prompt
+#
+# 示例:
+#   quality_prompt = "masterpiece, best quality"
+#   content_prompt = "anime style"
+#   用户输入 = "a girl with red hair"
+#
+#   最终提示词 = "masterpiece, best quality, anime style, a girl with red hair"
+#
+# 优势:
+#   - quality_prompt: 固定在配置文件，确保所有图片都有基础质量保证
+#   - content_prompt: 可以为不同场景设置不同的风格（如动漫、写实等）
+#   - user_prompt: 用户或机器人的具体描述，灵活多变
+#
+# ============================================
+
+
+# ============================================
+# 配置说明
+# ============================================
+#
+# 快速开始:
+# 1. 将 [plugin] enabled 设置为 true
+# 2. 确保 Stable Diffusion WebUI 已启动
+# 3. 根据需要调整图像生成参数
+# 4. 重启 MaiBot 使配置生效
+#
+# 性能优化建议:
+# - 降低 steps (15-20) 可以加快生成速度
+# - 降低分辨率 (512x512) 可以减少内存占用
+# - 关闭高分修复可以显著提升速度
+#
+# 质量提升建议:
+# - 增加 steps (25-30) 可以提升图像质量
+# - 使用 "DPM++ 2M Karras" 采样器
+# - 启用高分修复并使用 "R-ESRGAN 4x+" 放大器
+# - 调整 quality_prompt 添加更多质量关键词
+#
+# 风格定制建议:
+# - 动漫风格: content_prompt = "anime style, colorful, vibrant"
+# - 写实风格: content_prompt = "realistic, photorealistic, detailed"
+# - 油画风格: content_prompt = "oil painting, artistic, painterly"
+#
+# 更多信息请参考: README.md
+# ============================================

@@ -1,0 +1,70 @@
+{
+  "manifest_version": 1,
+  "name": "AI 绘图插件",
+  "version": "1.0.0",
+  "description": "基于 Stable Diffusion WebUI API 的 AI 绘图插件，支持智能绘图和命令绘图，提供 Action 和 Command 组件，支持模型切换、采样器调整等高级功能",
+  "author": {
+    "name": "ISAC"
+  },
+  "license": "MIT",
+  "host_application": {
+    "min_version": "0.11.0"
+
+  },
+  "keywords": [
+    "AI",
+    "绘图",
+    "Stable Diffusion",
+    "图像生成",
+    "文生图",
+    "AI绘画",
+    "SD",
+    "图片生成"
+  ],
+  "categories": [
+    "Content Generation",
+    "Multimedia"
+  ],
+  "default_locale": "zh-CN",
+  "plugin_info": {
+    "is_built_in": false,
+    "plugin_type": "general",
+    "components": [
+      {
+        "type": "action",
+        "name": "ai_drawing",
+        "description": "智能 AI 绘图动作，当用户要求生成图片时自动触发"
+      },
+      {
+        "type": "command",
+        "name": "draw",
+        "description": "绘图命令，使用 /draw <描述> 生成图片"
+      },
+      {
+        "type": "command",
+        "name": "drawhelp",
+        "description": "显示 AI 绘图插件的帮助信息"
+      },
+      {
+        "type": "command",
+        "name": "drawmodel",
+        "description": "查看当前使用的 Stable Diffusion 模型"
+      },
+      {
+        "type": "command",
+        "name": "switchmodel",
+        "description": "切换 Stable Diffusion 模型"
+      },
+      {
+        "type": "command",
+        "name": "sampler",
+        "description": "查看或切换采样器"
+      },
+      {
+        "type": "command",
+        "name": "scheduler",
+        "description": "查看或切换调度器"
+      }
+    ]
+  }
+}
