@@ -36,9 +36,28 @@ class AIDrawingPlugin(BasePlugin):
 
     def get_plugin_components(self) -> List[Tuple[ComponentInfo, Type]]:
         """返回插件包含的组件列表"""
+        # 获取 Action 组件的基本信息
+        action_info = AIDrawingAction.get_action_info()
+
+        # 读取机器人外观描述配置
+        bot_appearance = self.get_config("bot.appearance_description", "")
+
+        # 动态构建 action_require，将外观描述嵌入其中
+        if bot_appearance:
+            # 创建新的 action_require，包含实际的外观描述
+            custom_require = [
+                "当用户明确要求生成图片、绘画、画图时使用",
+                "当用户描述了想要的图像内容时使用",
+                f"当用户要求画你自己、画自画像、画机器人自己时，必须使用以下外观描述作为 prompt 参数：{bot_appearance}",
+                "重要：prompt 参数必须使用英文标签，不要使用中文。将用户的中文描述转换为英文标签",
+                "标签示例：人物特征(loli, girl, boy)、发色(white hair, black hair, blonde hair)、发型(long hair, short hair, twin tails, ponytail)、眼睛(red eyes, blue eyes, green eyes)、服装(dress, school uniform, maid outfit)、动作(standing, sitting, running, smiling)、配饰(cat ears, glasses, ribbon, hat)",
+            ]
+            # 修改 action_info 的 action_require
+            action_info.action_require = custom_require
+
         return [
             # Action 组件
-            (AIDrawingAction.get_action_info(), AIDrawingAction),
+            (action_info, AIDrawingAction),
             # Command 组件
             (DrawCommand.get_command_info(), DrawCommand),
             (DrawHelpCommand.get_command_info(), DrawHelpCommand),

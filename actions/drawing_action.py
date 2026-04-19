@@ -49,6 +49,12 @@ class AIDrawingAction(BaseAction):
                 "prompt": "girl, maid outfit, maid dress, apron, smile, standing",
             }
         },
+        {
+            "user_input": "画你自己",
+            "action_data": {
+                "prompt": "使用 action_require 中提供的机器人外观描述",
+            }
+        },
     ]
     associated_types = ["text", "image"]
 
