@@ -32,23 +32,42 @@ class CurrentModelCommand(BaseCommand):
 
 
 class SwitchModelCommand(BaseCommand):
-    """切换模型命令 - /switchmodel <model_name>"""
+    """切换模型命令 - /switchmodel [model_name]"""
 
     command_name = "switchmodel"
-    command_description = "切换 Stable Diffusion 模型"
-    command_pattern = r"^/switchmodel\s+(?P<model_name>.+)$"
+    command_description = "切换 Stable Diffusion 模型（不带参数则列出可用模型）"
+    command_pattern = r"^/switchmodel(?:\s+(?P<model_name>.+))?$"
 
     async def execute(self) -> Tuple[bool, str, bool]:
         """执行切换模型命令"""
         try:
             model_name = self.matched_groups.get("model_name", "").strip()
 
+            # 获取配置的可选模型列表
+            available_models = self.get_config("generation.available_models", [])
+
+            # 如果没有提供模型名称，显示可用列表
             if not model_name:
-                await self.send_text("请提供模型名称！\n用法: /switchmodel <模型名>")
-                return False, "缺少模型名称", True
+                if available_models:
+                    models_text = "\n".join([f"  - {m}" for m in available_models])
+                    # 同时查询 SD 当前使用的模型
+                    api_url = self.get_config("api.base_url", "http://localhost:7860")
+                    client = StableDiffusionClient(base_url=api_url)
+                    current_model = await client.get_current_model()
+                    current_text = f"\n当前模型: {current_model}" if current_model else ""
+                    await self.send_text(f"📋 可选的模型:{current_text}\n{models_text}\n\n用法: /switchmodel <模型名>")
+                else:
+                    await self.send_text("⚠️ 配置文件中未设置可选模型列表（generation.available_models）\n请在 config.toml 中添加模型文件名列表\n\n用法: /switchmodel <模型名>")
+                return True, "显示可选模型列表", True
 
             api_url = self.get_config("api.base_url", "http://localhost:7860")
             client = StableDiffusionClient(base_url=api_url)
+
+            # 检查模型是否在配置列表中（如果配置了列表）
+            if available_models and model_name not in available_models:
+                models_text = "\n".join([f"  - {m}" for m in available_models])
+                await self.send_text(f"❌ 模型 '{model_name}' 不在可选列表中\n\n可选模型:\n{models_text}")
+                return False, "模型不在可选列表", True
 
             await self.send_text(f"正在切换到模型: {model_name}...")
 

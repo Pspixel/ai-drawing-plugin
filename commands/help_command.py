@@ -20,7 +20,7 @@ class DrawHelpCommand(BaseCommand):
 
 /drawmodel - 查看当前使用的模型
 
-/switchmodel <模型名> - 切换绘图模型
+/switchmodel [模型名] - 切换绘图模型（不带参数列出可选模型）
   示例: /switchmodel model_name.safetensors
 
 /sampler [采样器名] - 查看或切换采样器

@@ -20,7 +20,7 @@ CONFIG_SCHEMA = {
         ),
         "config_version": ConfigField(
             type=str,
-            default="1.0.0",
+            default="1.1.0",
             description="配置文件版本"
         ),
         "debug_mode": ConfigField(
@@ -128,6 +128,11 @@ CONFIG_SCHEMA = {
                 "Polyexponential",
             ],
             description="可用的调度器列表（用于命令切换）",
+        ),
+        "available_models": ConfigField(
+            type=list,
+            default=[],
+            description="可选的 Stable Diffusion 模型文件名列表（用于 /switchmodel 命令列出和切换），例如: [\"model1.safetensors\", \"model2.safetensors\"]",
         ),
     },
     "bot": {
