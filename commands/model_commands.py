@@ -41,7 +41,8 @@ class SwitchModelCommand(BaseCommand):
     async def execute(self) -> Tuple[bool, str, bool]:
         """执行切换模型命令"""
         try:
-            model_name = self.matched_groups.get("model_name", "").strip()
+            # matched_groups 中键存在但值为 None 时，get 默认值不生效，需要用 or 兜底
+            model_name = (self.matched_groups.get("model_name") or "").strip()
 
             # 获取配置的可选模型列表
             available_models = self.get_config("generation.available_models", [])
