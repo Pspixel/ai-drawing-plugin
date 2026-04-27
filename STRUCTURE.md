@@ -67,8 +67,8 @@ ai_drawing_plugin/
 
 #### `commands/model_commands.py`
 - **CurrentModelCommand**: `/drawmodel` 命令
-- **SwitchModelCommand**: `/switchmodel` 命令
-- 模型查看和切换功能
+- **SwitchModelCommand**: `/switchmodel [模型名]` 命令
+- 模型查看、切换和列表功能（不带参数时列出配置的可选模型）
 
 #### `commands/sampler_commands.py`
 - **SwitchSamplerCommand**: `/sampler` 命令
