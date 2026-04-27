@@ -1,7 +1,7 @@
 """Stable Diffusion WebUI API 客户端"""
 import aiohttp
 import base64
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from io import BytesIO
 
 
@@ -144,28 +144,95 @@ class StableDiffusionClient:
             print(f"获取当前模型失败: {e}")
             return None
 
-    async def switch_model(self, model_name: str) -> bool:
+    async def switch_model(self, model_title: str) -> Tuple[bool, str]:
         """切换模型
 
         Args:
-            model_name: 模型名称
+            model_title: SD API 返回的模型 title（如 "model.safetensors [abc123]"）
 
         Returns:
-            是否切换成功
+            (是否成功, 错误信息)
         """
         url = f"{self.base_url}/sdapi/v1/options"
 
         payload = {
-            "sd_model_checkpoint": model_name
+            "sd_model_checkpoint": model_title
         }
 
         try:
             async with aiohttp.ClientSession(timeout=self.timeout) as session:
                 async with session.post(url, json=payload) as response:
-                    return response.status == 200
+                    if response.status == 200:
+                        return True, ""
+                    else:
+                        error_text = await response.text()
+                        return False, f"API 返回 {response.status}: {error_text[:200]}"
         except Exception as e:
             print(f"切换模型失败: {e}")
-            return False
+            return False, str(e)
+
+    async def find_model(self, query: str) -> Optional[Dict[str, Any]]:
+        """根据用户输入匹配模型
+
+        按优先级匹配: title 精确 > model_name 精确 > 模糊包含匹配
+
+        Args:
+            query: 用户输入的模型名（可以是 title、model_name 或部分名称）
+
+        Returns:
+            匹配到的模型字典，未找到返回 None
+        """
+        models = await self.get_models()
+        if not models:
+            return None
+
+        # 精确匹配 title
+        for m in models:
+            if query == m.get("title", ""):
+                return m
+
+        # 精确匹配 model_name
+        for m in models:
+            if query == m.get("model_name", ""):
+                return m
+
+        # 匹配 title 去掉 hash 后缀（如 "model.safetensors [abc123]" -> "model.safetensors"）
+        for m in models:
+            title = m.get("title", "")
+            title_without_hash = title.split(" [")[0] if " [" in title else title
+            if query == title_without_hash:
+                return m
+
+        # 模糊匹配（包含关系）
+        query_lower = query.lower()
+        for m in models:
+            title = m.get("title", "")
+            model_name = m.get("model_name", "")
+            if query_lower in title.lower() or query_lower in model_name.lower():
+                return m
+
+        return None
+
+    def format_model_list(self, models: List[Dict[str, Any]], current_title: Optional[str] = None) -> str:
+        """格式化模型列表用于显示
+
+        Args:
+            models: SD API 返回的模型列表
+            current_title: 当前模型的 title
+
+        Returns:
+            格式化的模型列表字符串
+        """
+        lines = []
+        for i, m in enumerate(models):
+            title = m.get("title", "未知")
+            model_name = m.get("model_name", "")
+            is_current = current_title and title == current_title
+            prefix = "→" if is_current else " "
+            # 截断过长的 hash
+            line = f"{prefix} {title}"
+            lines.append(line)
+        return "\n".join(lines)
 
     async def get_samplers(self) -> Optional[List[Dict[str, Any]]]:
         """获取可用采样器列表
