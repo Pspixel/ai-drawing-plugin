@@ -55,31 +55,10 @@ class SwitchModelCommand(BaseCommand):
 
             current_model = await client.get_current_model()
 
-            # 获取配置的可选模型列表（用于过滤显示）
-            config_models = self.get_config("generation.available_models", [])
-
-            # 决定显示的模型列表：配置不为空则用它过滤，否则显示全部
-            if config_models:
-                # 用配置列表过滤 API 返回的模型（模糊匹配 title 和 model_name）
-                display_models = []
-                for api_m in api_models:
-                    title = api_m.get("title", "")
-                    model_name = api_m.get("model_name", "")
-                    for cm in config_models:
-                        if cm in title or cm in model_name or cm == title.split(" [")[0] if " [" in title else False:
-                            display_models.append(api_m)
-                            break
-                if not display_models:
-                    # 配置中的模型名与 API 返回的都不匹配，显示全部 API 模型
-                    display_models = api_models
-                    await self.send_text("⚠️ 配置的 available_models 与 SD 中实际模型未匹配，显示全部模型")
-            else:
-                display_models = api_models
-
-            # 如果没有提供模型名称，列出可选模型
+            # 如果没有提供模型名称，列出 SD 中所有可用模型
             if not user_input:
                 lines = []
-                for m in display_models:
+                for m in api_models:
                     title = m.get("title", "未知")
                     is_current = current_model and title == current_model
                     prefix = "👉 " if is_current else "   "
@@ -92,27 +71,13 @@ class SwitchModelCommand(BaseCommand):
             # 使用 API 的 find_model 匹配用户输入
             matched = await client.find_model(user_input)
             if not matched:
-                # 没找到，显示可用模型列表供参考
-                lines = [f"  {m.get('title', '未知')}" for m in display_models[:10]]
+                lines = [f"  {m.get('title', '未知')}" for m in api_models[:10]]
                 models_preview = "\n".join(lines)
-                suffix = f"\n  ...还有 {len(display_models) - 10} 个" if len(display_models) > 10 else ""
+                suffix = f"\n  ...还有 {len(api_models) - 10} 个" if len(api_models) > 10 else ""
                 await self.send_text(f"❌ 未找到匹配的模型: {user_input}\n\n可用的模型（前10个）:\n{models_preview}{suffix}")
                 return False, "模型未找到", True
 
             matched_title = matched.get("title", user_input)
-
-            # 如果配置了 available_models，检查匹配到的模型是否在配置中
-            if config_models:
-                found_in_config = False
-                for cm in config_models:
-                    if cm in matched_title or cm in matched.get("model_name", ""):
-                        found_in_config = True
-                        break
-                if not found_in_config:
-                    await self.send_text(
-                        f"⚠️ 模型 '{matched_title}' 在 SD 中存在，但不在配置的 available_models 列表中\n"
-                        f"仍将为你切换，如需限制可用模型，请在 config.toml 中更新 available_models"
-                    )
 
             await self.send_text(f"🔄 正在切换到模型: {matched_title}...")
 

@@ -120,7 +120,7 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 /switchmodel anime_model.safetensors   # 切换到指定模型
 ```
 
-不带参数时列出配置文件中 `available_models` 定义的可选模型，带参数时切换到指定模型。
+不带参数时列出 SD WebUI 中所有可用模型，带参数时切换到指定模型（支持模糊匹配）。
 
 #### `/sampler [采样器名]` - 查看或切换采样器
 
@@ -166,7 +166,6 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 | `generation.denoising_strength` | float | `0.7` | 去噪强度 |
 | `generation.available_samplers` | list | `["Euler a", ...]` | 可用的采样器列表 |
 | `generation.available_schedulers` | list | `["Automatic", ...]` | 可用的调度器列表 |
-| `generation.available_models` | list | `[]` | 可选的模型文件名列表（用于 /switchmodel 命令列出和切换） |
 
 ### 机器人配置
 
@@ -215,7 +214,7 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 
 ### SwitchModelCommand
 
-查看可选模型列表或切换 Stable Diffusion 模型。模型列表从配置文件中的 `generation.available_models` 读取。
+查看可选模型列表或切换 Stable Diffusion 模型。模型列表从 SD WebUI API 实时获取。
 
 **命令格式**:
 - `/switchmodel` - 列出可选模型和当前模型
@@ -302,10 +301,7 @@ cfg_scale = 7.5  # 提高相关性使图像更符合提示词
 
 ### Q: 如何查看可用的模型列表？
 
-**A**: 有三种方式：
-1. 直接使用 `/switchmodel` 命令（无需参数）即可查看配置的可选模型
-2. 在配置文件的 `generation.available_models` 中配置可选模型文件名列表
-3. 通过 Stable Diffusion WebUI 的 API 查看：`http://localhost:7860/sdapi/v1/sd-models`
+**A**: 直接使用 `/switchmodel` 命令（无需参数）即可查看 SD WebUI 中所有可用的模型。
 
 ### Q: 切换模型后没有生效
 

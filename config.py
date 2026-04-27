@@ -129,11 +129,6 @@ CONFIG_SCHEMA = {
             ],
             description="可用的调度器列表（用于命令切换）",
         ),
-        "available_models": ConfigField(
-            type=list,
-            default=[],
-            description="可选的 Stable Diffusion 模型文件名列表（用于 /switchmodel 命令列出和切换），例如: [\"model1.safetensors\", \"model2.safetensors\"]",
-        ),
     },
     "bot": {
         "appearance_description": ConfigField(

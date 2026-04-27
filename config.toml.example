@@ -86,16 +86,6 @@ available_schedulers = [
     "Polyexponential"
 ]
 
-# 可选的 Stable Diffusion 模型文件名列表（用于 /switchmodel 命令列出和切换），例如: ["model1.safetensors", "model2.safetensors"]
-# 请在此填写你 SD WebUI 中实际安装的模型文件名（包含 .safetensors 或 .ckpt 后缀）
-# 切换模型后，所有后续绘画请求都将使用切换后的模型
-available_models = [
-    # 请将下面的注释取消并替换为你实际的模型文件名:
-    # "your_model_1.safetensors",
-    # "your_model_2.safetensors"
-]
-
-
 # 机器人相关配置
 [bot]
 

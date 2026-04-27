@@ -42,14 +42,10 @@
 
 #### 如何切换模型：
 ```bash
-# 先在配置文件中添加可选模型列表
-# [generation]
-# available_models = ["sfw_model.safetensors", "anime_sfw.safetensors"]
-
-# 在聊天中使用命令列出可选模型
+# 在聊天中使用命令列出 SD 中的所有可选模型
 /switchmodel
 
-# 切换到指定模型
+# 切换到指定模型（支持模糊匹配）
 /switchmodel model_name.safetensors
 
 # 或在 Stable Diffusion WebUI 中手动切换
