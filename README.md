@@ -23,10 +23,7 @@
 
 确保你的 Stable Diffusion WebUI 已启动并开启了 API 功能：
 
-```bash
-# 启动时添加 --api 参数
-python launch.py --api
-```
+拿绘世启动器举例，点开启动器左边的**高级选项**，找到**网络设置**部分的**启用api**选项即可。
 
 默认 API 地址为 `http://localhost:7860`
 

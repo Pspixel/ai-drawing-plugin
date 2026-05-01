@@ -4,13 +4,14 @@
   "version": "1.1.0",
   "description": "基于 Stable Diffusion WebUI API 的 AI 绘图插件，支持智能绘图和命令绘图，提供 Action 和 Command 组件，支持模型切换、采样器调整等高级功能",
   "author": {
-    "name": "ISAC"
+    "name": "Pspixel",
+    "url": "https://github.com/Pspixel"
   },
   "license": "MIT",
   "host_application": {
     "min_version": "0.11.0"
-
   },
+  "repository_url": "https://github.com/Pspixel/ai-drawing-plugin",
   "keywords": [
     "AI",
     "绘图",
@@ -26,6 +27,7 @@
     "Multimedia"
   ],
   "default_locale": "zh-CN",
+  "id": "pspixel.ai-drawing-plugin",
   "plugin_info": {
     "is_built_in": false,
     "plugin_type": "general",
