@@ -35,6 +35,7 @@ class DrawCommand(BaseCommand):
             enable_hr = self.get_config("generation.enable_hr", False)
             hr_scale = self.get_config("generation.hr_scale", 2.0)
             hr_upscaler = self.get_config("generation.hr_upscaler", "Latent")
+            hr_second_pass_steps = self.get_config("generation.hr_second_pass_steps", 0)
             denoising_strength = self.get_config("generation.denoising_strength", 0.7)
 
             # 组合 prompt
@@ -72,6 +73,7 @@ class DrawCommand(BaseCommand):
   采样器: {sampler_name}
   调度器: {scheduler if scheduler else 'Automatic'}
   高分修复: {'是' if enable_hr else '否'}
+  高分修复步数: {hr_second_pass_steps if hr_second_pass_steps > 0 else f'与首次相同({steps})'}
 ━━━━━━━━━━━━━━━━━━━━━━"""
                 await self.send_text(debug_info)
 
@@ -92,6 +94,7 @@ class DrawCommand(BaseCommand):
                 enable_hr=enable_hr,
                 hr_scale=hr_scale,
                 hr_upscaler=hr_upscaler,
+                hr_second_pass_steps=hr_second_pass_steps,
                 denoising_strength=denoising_strength,
             )
 

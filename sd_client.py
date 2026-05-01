@@ -30,7 +30,9 @@ class StableDiffusionClient:
         enable_hr: bool = False,
         hr_scale: float = 2.0,
         hr_upscaler: str = "Latent",
+        hr_second_pass_steps: int = 0,
         denoising_strength: float = 0.7,
+        hr_additional_modules: list = None,
         seed: int = -1,
         batch_size: int = 1,
         **kwargs
@@ -49,7 +51,9 @@ class StableDiffusionClient:
             enable_hr: 是否启用高清修复
             hr_scale: 高清放大倍数
             hr_upscaler: 高清放大器名称
+            hr_second_pass_steps: 高清修复二次采样步数（0 表示与首次相同）
             denoising_strength: 去噪强度
+            hr_additional_modules: 高清修复阶段的附加网络模块列表（Forge 专用，默认 ["Use same choices"]）
             seed: 随机种子
             batch_size: 批次大小
             **kwargs: 其他参数
@@ -84,7 +88,13 @@ class StableDiffusionClient:
         if enable_hr:
             payload["hr_scale"] = hr_scale
             payload["hr_upscaler"] = hr_upscaler
+            payload["hr_second_pass_steps"] = hr_second_pass_steps
             payload["denoising_strength"] = denoising_strength
+            # 修复 Forge 的 hr_additional_modules 为 None 导致的 TypeError
+            # 参见: Forge processing.py line 1405
+            # 'Use same choices' not in self.hr_additional_modules
+            # 当通过 API 调用且未传此字段时，Forge 会将其反序列化为 None
+            payload["hr_additional_modules"] = hr_additional_modules if hr_additional_modules is not None else ["Use same choices"]
 
         # 添加其他参数
         payload.update(kwargs)

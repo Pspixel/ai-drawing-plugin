@@ -20,7 +20,7 @@ CONFIG_SCHEMA = {
         ),
         "config_version": ConfigField(
             type=str,
-            default="1.1.0",
+            default="1.2.0",
             description="配置文件版本"
         ),
         "debug_mode": ConfigField(
@@ -105,6 +105,11 @@ CONFIG_SCHEMA = {
             type=float,
             default=0.7,
             description="去噪强度（用于高分修复）",
+        ),
+        "hr_second_pass_steps": ConfigField(
+            type=int,
+            default=0,
+            description="高分修复二次采样步数（0 表示与首次采样步数相同）",
         ),
         "available_samplers": ConfigField(
             type=list,

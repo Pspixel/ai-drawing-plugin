@@ -20,6 +20,7 @@ class AIDrawingAction(BaseAction):
         "width": "图像宽度（可选，默认使用配置文件）",
         "height": "图像高度（可选，默认使用配置文件）",
         "enable_hr": "是否启用高分修复（可选，默认使用配置文件）",
+        "hr_second_pass_steps": "高分修复二次采样步数（可选，0 表示与首次步数相同，默认使用配置文件）",
     }
 
     action_require = [
@@ -75,6 +76,7 @@ class AIDrawingAction(BaseAction):
             default_enable_hr = self.get_config("generation.enable_hr", False)
             hr_scale = self.get_config("generation.hr_scale", 2.0)
             hr_upscaler = self.get_config("generation.hr_upscaler", "Latent")
+            hr_second_pass_steps = self.get_config("generation.hr_second_pass_steps", 0)
             denoising_strength = self.get_config("generation.denoising_strength", 0.7)
             bot_appearance = self.get_config("bot.appearance_description", "")
 
@@ -84,6 +86,7 @@ class AIDrawingAction(BaseAction):
             width = self.action_data.get("width", default_width)
             height = self.action_data.get("height", default_height)
             enable_hr = self.action_data.get("enable_hr", default_enable_hr)
+            hr_second_pass_steps = self.action_data.get("hr_second_pass_steps", hr_second_pass_steps)
 
             # 如果用户要求画自画像，使用机器人外观描述
             if "自画像" in user_prompt or "画你自己" in user_prompt or "画自己" in user_prompt:
@@ -131,6 +134,7 @@ class AIDrawingAction(BaseAction):
   采样器: {default_sampler}
   调度器: {default_scheduler if default_scheduler else 'Automatic'}
   高分修复: {'是' if enable_hr else '否'}
+  高分修复步数: {hr_second_pass_steps if hr_second_pass_steps > 0 else f'与首次相同({default_steps})'}
 ━━━━━━━━━━━━━━━━━━━━━━"""
                 await self.send_text(debug_info)
 
@@ -156,6 +160,7 @@ class AIDrawingAction(BaseAction):
                 enable_hr=enable_hr,
                 hr_scale=hr_scale,
                 hr_upscaler=hr_upscaler,
+                hr_second_pass_steps=hr_second_pass_steps,
                 denoising_strength=denoising_strength,
             )
 
