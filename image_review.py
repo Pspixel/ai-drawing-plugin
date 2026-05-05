@@ -1,7 +1,10 @@
 """图像审查模块 - 使用视觉模型判断图像是否色情违规"""
 import json
+import logging
 import aiohttp
 from typing import Optional, Tuple
+
+logger = logging.getLogger("ai_drawing.image_review")
 
 
 class ImageReviewer:
@@ -33,6 +36,8 @@ class ImageReviewer:
                 - 第二个值: 违规原因（合规时为 None）
         """
         try:
+            logger.debug("开始图像审查，模型: %s, API: %s", model_name, api_base_url)
+
             # 构建多模态消息（OpenAI 兼容格式）
             messages = [
                 {
@@ -66,28 +71,31 @@ class ImageReviewer:
             }
 
             # 发送请求
+            logger.debug("发送审查请求至: %s", url)
             timeout = aiohttp.ClientTimeout(total=30)
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.post(url, json=payload, headers=headers) as response:
                     if response.status != 200:
                         error_text = await response.text()
-                        print(f"[图像审查] API 请求失败 {response.status}: {error_text[:200]}")
+                        logger.error("API 请求失败 %s: %s", response.status, error_text[:200])
                         return False, "审查服务请求失败"
 
                     result = await response.json()
                     content = result["choices"][0]["message"]["content"].strip()
 
+            logger.debug("审查模型返回内容: %s", content[:200])
+
             # 解析 JSON 结果
             return ImageReviewer._parse_review_result(content)
 
         except KeyError as e:
-            print(f"[图像审查] 响应格式异常: {e}")
+            logger.error("响应格式异常: %s", e)
             return False, "审查响应格式异常"
         except aiohttp.ClientError as e:
-            print(f"[图像审查] 网络请求错误: {e}")
+            logger.error("网络请求错误: %s", e)
             return False, "审查服务网络错误"
         except Exception as e:
-            print(f"[图像审查] 审查过程出错: {e}")
+            logger.error("审查过程出错: %s", e)
             return False, f"审查异常: {str(e)}"
 
     @staticmethod
@@ -104,6 +112,7 @@ class ImageReviewer:
             Tuple[bool, Optional[str]]: (是否合规, 违规原因)
         """
         # 尝试提取 JSON 内容
+        logger.debug("解析审查结果，原始内容: %s", content[:200])
         json_str = content
 
         # 处理 markdown 代码块包裹的情况
@@ -118,21 +127,23 @@ class ImageReviewer:
         if start != -1 and end > start:
             json_str = json_str[start:end]
         else:
-            print(f"[图像审查] 未能从返回内容中提取 JSON: {content[:200]}")
+            logger.warning("未能从返回内容中提取 JSON: %s", content[:200])
             return False, "审查结果格式异常"
 
         try:
             result = json.loads(json_str)
         except json.JSONDecodeError as e:
-            print(f"[图像审查] JSON 解析失败: {e}, 原始内容: {json_str[:200]}")
+            logger.warning("JSON 解析失败: %s, 原始内容: %s", e, json_str[:200])
             return False, "审查结果解析失败"
 
         is_safe = result.get("safe", True)
         reason = result.get("reason", None)
 
         if is_safe:
+            logger.info("图像审查通过")
             return True, None
         else:
+            logger.info("图像审查未通过，原因: %s", reason or "图片内容违规")
             return False, reason or "图片内容违规"
 
     @staticmethod
@@ -182,7 +193,10 @@ class ImageReviewer:
         # 检查图像审查总开关
         review_enabled = config_getter("image_review.enabled", False)
         if not review_enabled:
+            logger.debug("图像审查总开关未开启，跳过审查")
             return False
+
+        logger.debug("判断是否需要审查 - 群聊: %s, group_id: %s, user_id: %s", is_group, group_id, user_id)
 
         if is_group:
             # 群聊场景
@@ -191,6 +205,7 @@ class ImageReviewer:
             if group_whitelist_enabled:
                 group_whitelist = config_getter("group_whitelist.group_ids", [])
                 if ImageReviewer._match_id(group_id, group_whitelist):
+                    logger.info("群 %s 命中白名单，需要审查", group_id)
                     return True  # 白名单命中，需要审查
 
             # 检查黑名单：黑名单中的群需要审查
@@ -198,9 +213,11 @@ class ImageReviewer:
             if group_blacklist_enabled:
                 group_blacklist = config_getter("group_blacklist.group_ids", [])
                 if ImageReviewer._match_id(group_id, group_blacklist):
+                    logger.info("群 %s 命中黑名单，需要审查", group_id)
                     return True  # 黑名单命中，需要审查
 
             # 不在任何名单中，不审查
+            logger.debug("群 %s 不在任何名单中，跳过审查", group_id)
             return False
         else:
             # 私聊场景
@@ -209,6 +226,7 @@ class ImageReviewer:
             if private_whitelist_enabled:
                 private_whitelist = config_getter("private_whitelist.user_ids", [])
                 if ImageReviewer._match_id(user_id, private_whitelist):
+                    logger.info("用户 %s 命中白名单，需要审查", user_id)
                     return True  # 白名单命中，需要审查
 
             # 检查黑名单：黑名单中的用户需要审查
@@ -216,7 +234,9 @@ class ImageReviewer:
             if private_blacklist_enabled:
                 private_blacklist = config_getter("private_blacklist.user_ids", [])
                 if ImageReviewer._match_id(user_id, private_blacklist):
+                    logger.info("用户 %s 命中黑名单，需要审查", user_id)
                     return True  # 黑名单命中，需要审查
 
             # 不在任何名单中，不审查
+            logger.debug("用户 %s 不在任何名单中，跳过审查", user_id)
             return False

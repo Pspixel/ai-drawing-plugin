@@ -1,9 +1,12 @@
 """AI 绘图 Action 组件"""
+import logging
 from typing import Tuple
 from src.plugin_system import BaseAction, ActionActivationType
 from ..sd_client import StableDiffusionClient
 from ..utils import MessageGenerator
 from ..image_review import ImageReviewer
+
+logger = logging.getLogger("ai_drawing.drawing_action")
 
 
 class AIDrawingAction(BaseAction):
@@ -250,7 +253,7 @@ class AIDrawingAction(BaseAction):
 
         except Exception as e:
             # 审查服务异常时，默认拦截并返回错误信息
-            print(f"[图像审查] 审查过程异常: {e}")
+            logger.error("审查过程异常: %s", e)
             error_message = self.get_config(
                 "image_review.review_error_message",
                 "⚠️ 图像审查服务异常，为安全起见已拦截输出。",
