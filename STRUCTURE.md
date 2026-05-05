@@ -10,6 +10,7 @@ ai_drawing_plugin/
 ├── plugin.py                   # 插件主文件（入口）
 ├── config.py                   # 配置定义模块
 ├── sd_client.py               # Stable Diffusion API 客户端
+├── image_review.py            # 图像审查模块
 ├── actions/                   # Action 组件目录
 │   ├── __init__.py
 │   └── drawing_action.py      # AI 绘图 Action
@@ -45,6 +46,12 @@ ai_drawing_plugin/
 - Stable Diffusion WebUI API 封装
 - 图像生成接口
 - 模型管理接口
+
+#### `image_review.py` - 图像审查模块
+- **ImageReviewer**: 图像审查器类
+- 通过视觉模型 API 判断图像是否违规
+- 支持黑白名单配置控制审查范围
+- 兼容 OpenAI 格式的多模态 API
 
 ### Action 组件
 

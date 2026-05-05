@@ -8,6 +8,11 @@ CONFIG_SECTION_DESCRIPTIONS = {
     "api": "Stable Diffusion API 配置",
     "generation": "图像生成参数配置",
     "bot": "机器人相关配置",
+    "image_review": "图像审查配置",
+    "private_whitelist": "私聊白名单配置",
+    "private_blacklist": "私聊黑名单配置",
+    "group_whitelist": "群聊白名单配置",
+    "group_blacklist": "群聊黑名单配置",
 }
 
 # 配置 Schema
@@ -20,7 +25,7 @@ CONFIG_SCHEMA = {
         ),
         "config_version": ConfigField(
             type=str,
-            default="1.2.0",
+            default="2.0.0",
             description="配置文件版本"
         ),
         "debug_mode": ConfigField(
@@ -140,6 +145,109 @@ CONFIG_SCHEMA = {
             type=str,
             default="a cute anime girl with blue hair and blue eyes, smiling, wearing a white dress",
             description="机器人的外观描述（用于自画像功能）",
+        ),
+    },
+    "image_review": {
+        "enabled": ConfigField(
+            type=bool,
+            default=False,
+            description="是否启用图像审查功能"
+        ),
+        "vision_api_base_url": ConfigField(
+            type=str,
+            default="http://localhost:11434/v1",
+            description="视觉模型 API 地址（OpenAI 兼容接口）",
+            example="http://localhost:11434/v1",
+        ),
+        "vision_api_key": ConfigField(
+            type=str,
+            default="",
+            description="视觉模型 API 密钥（本地部署可留空）",
+            input_type="password",
+        ),
+        "vision_model_name": ConfigField(
+            type=str,
+            default="llava",
+            description="视觉模型名称（如 llava、gpt-4o、qwen-vl-plus 等）",
+            example="llava",
+        ),
+        "review_prompt": ConfigField(
+            type=str,
+            default=(
+                "你是一个图像安全审查助手。请分析这张图片是否包含色情、裸露或违规内容。"
+                "请仅输出JSON格式的结果，不要输出其他任何内容。"
+                'JSON格式如下：{"safe": true/false, "reason": "判断理由（简短描述）"}'
+                "其中 safe 为 true 表示图片安全合规，false 表示图片违规。"
+            ),
+            description="图像审查的提示词（发送给视觉模型用于判断图片是否违规）",
+            input_type="textarea",
+            rows=4,
+        ),
+        "block_message": ConfigField(
+            type=str,
+            default="⚠️ 生成的图片未通过安全审查，已拦截输出。",
+            description="图片违规时的拦截提示消息",
+        ),
+        "review_error_message": ConfigField(
+            type=str,
+            default="⚠️ 图像审查服务异常，为安全起见已拦截输出。",
+            description="图像审查服务异常时的提示消息",
+        ),
+    },
+    "private_whitelist": {
+        "enabled": ConfigField(
+            type=bool,
+            default=False,
+            description="是否启用私聊白名单（启用后仅白名单中的用户会被审查）"
+        ),
+        "user_ids": ConfigField(
+            type=list,
+            default=[],
+            description="私聊白名单用户ID列表",
+            item_type="string",
+            hint="填写需要进行图像审查的用户ID",
+        ),
+    },
+    "private_blacklist": {
+        "enabled": ConfigField(
+            type=bool,
+            default=False,
+            description="是否启用私聊黑名单（启用后仅黑名单中的用户会被审查）"
+        ),
+        "user_ids": ConfigField(
+            type=list,
+            default=[],
+            description="私聊黑名单用户ID列表",
+            item_type="string",
+            hint="填写需要进行图像审查的用户ID",
+        ),
+    },
+    "group_whitelist": {
+        "enabled": ConfigField(
+            type=bool,
+            default=False,
+            description="是否启用群聊白名单（启用后仅白名单中的群会被审查）"
+        ),
+        "group_ids": ConfigField(
+            type=list,
+            default=[],
+            description="群聊白名单群ID列表",
+            item_type="string",
+            hint="填写需要进行图像审查的群ID",
+        ),
+    },
+    "group_blacklist": {
+        "enabled": ConfigField(
+            type=bool,
+            default=False,
+            description="是否启用群聊黑名单（启用后仅黑名单中的群会被审查）"
+        ),
+        "group_ids": ConfigField(
+            type=list,
+            default=[],
+            description="群聊黑名单群ID列表",
+            item_type="string",
+            hint="填写需要进行图像审查的群ID",
         ),
     },
 }

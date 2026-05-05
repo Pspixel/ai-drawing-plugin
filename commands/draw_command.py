@@ -2,6 +2,7 @@
 from typing import Tuple
 from src.plugin_system import BaseCommand
 from ..sd_client import StableDiffusionClient
+from ..image_review import ImageReviewer
 
 
 class DrawCommand(BaseCommand):
@@ -102,6 +103,20 @@ class DrawCommand(BaseCommand):
                 # 获取第一张图像
                 image_base64 = result["images"][0]
 
+                # 图像审查流程
+                if self._should_review():
+                    is_safe, reason = await self._review_image(image_base64)
+                    if not is_safe:
+                        # 图片违规，发送拦截消息
+                        block_message = self.get_config(
+                            "image_review.block_message",
+                            "⚠️ 生成的图片未通过安全审查，已拦截输出。",
+                        )
+                        if reason:
+                            block_message = f"{block_message}\n原因：{reason}"
+                        await self.send_text(block_message)
+                        return False, f"图片未通过审查: {reason}", True
+
                 # 发送图像
                 await self.send_image(image_base64)
 
@@ -118,3 +133,52 @@ class DrawCommand(BaseCommand):
             # 发送错误提示
             await self.send_text(f"❌ 生成图片时出错: {str(e)}")
             return False, f"执行出错: {str(e)}", True
+
+    def _should_review(self) -> bool:
+        """判断是否需要对本次生成的图像进行审查"""
+        is_group = getattr(self, "is_group", False)
+        group_id = getattr(self, "group_id", "")
+        user_id = getattr(self, "user_id", "")
+
+        return ImageReviewer.should_review(
+            is_group=is_group,
+            group_id=group_id,
+            user_id=user_id,
+            config_getter=self.get_config,
+        )
+
+    async def _review_image(self, image_base64: str) -> Tuple[bool, str]:
+        """审查图像是否违规
+
+        Args:
+            image_base64: 图片的 base64 编码
+
+        Returns:
+            Tuple[bool, str]: (是否安全, 违规原因)
+        """
+        try:
+            vision_api_url = self.get_config(
+                "image_review.vision_api_base_url", "http://localhost:11434/v1"
+            )
+            vision_api_key = self.get_config("image_review.vision_api_key", "")
+            vision_model = self.get_config("image_review.vision_model_name", "llava")
+            review_prompt = self.get_config("image_review.review_prompt", "")
+
+            is_safe, reason = await ImageReviewer.review_image(
+                image_base64=image_base64,
+                api_base_url=vision_api_url,
+                api_key=vision_api_key,
+                model_name=vision_model,
+                review_prompt=review_prompt,
+            )
+            return is_safe, reason or ""
+
+        except Exception as e:
+            # 审查服务异常时，默认拦截并返回错误信息
+            print(f"[图像审查] 审查过程异常: {e}")
+            error_message = self.get_config(
+                "image_review.review_error_message",
+                "⚠️ 图像审查服务异常，为安全起见已拦截输出。",
+            )
+            await self.send_text(error_message)
+            return False, "审查服务异常"

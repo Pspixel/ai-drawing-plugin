@@ -1,189 +1,198 @@
-# 🛡️ NSFW 内容过滤指南
+# 图像审查功能指南
 
-## ⚠️ 重要说明
+本插件支持通过视觉模型对生成的图像进行内容审查，可配置黑白名单控制审查范围。
 
-**负面提示词（Negative Prompt）无法 100% 阻止 NSFW 内容的生成。** 这是 Stable Diffusion 的固有限制，不是插件的问题。
+## 功能概述
 
----
+- 使用视觉模型（如 LLaVA、GPT-4o 等）判断图像是否包含违规内容
+- 支持私聊和群聊两套独立的黑白名单
+- 违规图像会被拦截，不发送给用户
+- 兼容 OpenAI 格式的多模态 API
 
-## 🔍 为什么负面提示词不能完全阻止 NSFW？
+## 配置说明
 
-### 1. **模型训练数据的影响**
-- 如果使用的模型在 NSFW 数据上训练过，模型会有生成这类内容的倾向
-- 某些动漫风格模型（如 Anything、NovelAI 系列）对 NSFW 内容更敏感
-- 模型的"记忆"比负面提示词的影响更强
-
-### 2. **提示词权重机制**
-- 正面提示词的权重通常比负面提示词更强
-- 如果正面提示词中包含某些敏感词汇（如 "sexy", "attractive", "revealing" 等），可能会触发 NSFW 内容
-- 负面提示词只是"建议"，不是"强制"
-
-### 3. **CFG Scale 的影响**
-- `cfg_scale` 值过高（>12）会让模型过度遵循提示词，可能产生意外结果
-- 值过低（<5）会让负面提示词失效
-
-### 4. **采样器的差异**
-- 不同采样器对负面提示词的响应程度不同
-- 某些采样器（如 DDIM）对负面提示词的响应较弱
-
----
-
-## ✅ 有效的解决方案
-
-### 🥇 方案 1: 使用 SFW 模型（最有效）
-
-**这是最根本、最有效的解决方法！**
-
-#### 推荐的 SFW 模型：
-- **Stable Diffusion 2.1** - 官方模型，默认过滤 NSFW
-- **Realistic Vision V5.1 (SFW 版本)** - 写实风格，SFW 版本
-- **DreamShaper (SFW 版本)** - 通用模型，有 SFW 版本
-- **Pastel Mix (SFW 版本)** - 动漫风格，SFW 版本
-
-#### 如何切换模型：
-```bash
-# 在聊天中使用命令列出 SD 中的所有可选模型
-/switchmodel
-
-# 切换到指定模型（支持模糊匹配）
-/switchmodel model_name.safetensors
-
-# 或在 Stable Diffusion WebUI 中手动切换
-```
-
----
-
-### 🥈 方案 2: 增强负面提示词权重
-
-在负面提示词中使用权重语法：
+### 基础配置
 
 ```toml
-# config.toml 中的配置
-negative_prompt = "(nsfw:1.5), (nude:1.5), (explicit:1.5), (sexual:1.5), (porn:1.5), (hentai:1.5), lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry"
+[image_review]
+# 是否启用图像审查功能
+enabled = false
+# 视觉模型 API 地址（OpenAI 兼容格式）
+api_base_url = "http://127.0.0.1:11434/v1"
+# API 密钥（可为空）
+api_key = ""
+# 视觉模型名称
+model_name = "llava:13b"
+# 审查提示词（要求模型返回 JSON 格式）
+review_prompt = """请判断这张图片是否包含色情、暴力或违规内容。
+请只返回一个 JSON 对象，格式如下：
+{"safe": true/false, "reason": "违规原因（如果违规的话）"}
+如果是正常图片，safe 为 true；如果包含违规内容，safe 为 false 并说明原因。"""
 ```
 
-#### 权重语法说明：
-- `(word)` - 权重 1.1
-- `((word))` - 权重 1.21
-- `(word:1.5)` - 权重 1.5（推荐）
-- `(word:2.0)` - 权重 2.0（最高）
+### 黑白名单配置
 
----
+插件提供两套独立的黑白名单系统：群聊和私聊。
 
-### 🥉 方案 3: 调整生成参数
-
-#### 1. 降低 CFG Scale
-```toml
-# 推荐值: 6.0-8.0
-cfg_scale = 7.0
-```
-
-#### 2. 使用更保守的采样器
-```toml
-# 推荐采样器
-sampler_name = "Euler a"  # 或 "DPM++ 2M Karras"
-```
-
-#### 3. 调整质量提示词
-```toml
-# 添加 SFW 相关的质量词
-quality_prompt = "masterpiece, best quality, highly detailed, safe for work, appropriate, family friendly"
-```
-
----
-
-### 🛠️ 方案 4: 使用 Stable Diffusion WebUI 的安全功能
-
-#### 1. 启用 Safety Checker（安全检查器）
-在 Stable Diffusion WebUI 的设置中启用：
-```
-Settings -> User Interface -> Enable Safety Checker
-```
-
-#### 2. 使用 NSFW Filter 扩展
-安装 WebUI 扩展：
-- **sd-webui-nsfw-filter** - 自动检测和过滤 NSFW 图片
-- **sd-webui-safety-checker** - 增强的安全检查
-
----
-
-## 📋 完整的 NSFW 过滤配置示例
+#### 群聊配置
 
 ```toml
-[generation]
-# 质量提示词 - 添加 SFW 相关词汇
-quality_prompt = "masterpiece, best quality, highly detailed, safe for work, appropriate, family friendly, wholesome"
+# 群聊黑名单：名单中的群会被审查
+[group_blacklist]
+enabled = false
+group_ids = []  # 群ID列表，例如 [123456789, 987654321]
 
-# 内容提示词 - 避免使用敏感词汇
-content_prompt = ""
-
-# 负面提示词 - 使用高权重的 NSFW 过滤词
-negative_prompt = "(nsfw:1.8), (nude:1.8), (explicit:1.8), (sexual:1.8), (porn:1.8), (hentai:1.8), (naked:1.5), (underwear:1.3), (revealing:1.3), lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry"
-
-# CFG Scale - 使用适中的值
-cfg_scale = 7.0
-
-# 采样器 - 使用保守的采样器
-sampler_name = "Euler a"
-
-# 采样步数 - 不要过高
-steps = 20
+# 群聊白名单：名单中的群会被审查
+[group_whitelist]
+enabled = false
+group_ids = []  # 群ID列表
 ```
 
----
+#### 私聊配置
 
-## 🚨 用户输入的风险
+```toml
+# 私聊黑名单：名单中的用户会被审查
+[private_blacklist]
+enabled = false
+user_ids = []  # 用户ID列表，例如 ["10001", "10002"]
 
-即使配置了完善的 NSFW 过滤，**用户输入的提示词仍然可能触发 NSFW 内容**。
+# 私聊白名单：名单中的用户会被审查
+[private_whitelist]
+enabled = false
+user_ids = []  # 用户ID列表
+```
 
-### 高风险词汇示例：
-- 身体部位相关: "chest", "legs", "body"
-- 服装相关: "bikini", "lingerie", "tight", "revealing"
-- 姿势相关: "lying", "pose", "seductive"
-- 描述词: "sexy", "hot", "attractive", "beautiful"
+## 黑白名单逻辑
 
-### 建议：
-1. **在 Action 组件中添加提示词过滤**
-2. **使用 LLM 重写用户提示词**，移除敏感词汇
-3. **添加用户提示和警告**
+| 审查总开关 | 黑白名单状态 | 审查行为 |
+|-----------|------------|---------|
+| 关闭 | 任意 | 不审查任何图像，直接发送 |
+| 开启 | 黑白名单都未启用 | 不审查任何图像 |
+| 开启 | 只启用白名单 | 仅白名单中的用户/群审查 |
+| 开启 | 只启用黑名单 | 仅黑名单中的用户/群审查 |
+| 开启 | 黑白名单同时启用 | 命中任一名单都审查 |
 
----
+## 使用示例
 
-## 🎯 最佳实践总结
+### 示例 1：审查所有群聊图像
 
-### ✅ 推荐做法：
-1. **使用 SFW 模型**（最重要！）
-2. 在负面提示词中使用高权重的 NSFW 过滤词
-3. 保持 `cfg_scale` 在 6.0-8.0 之间
-4. 在质量提示词中添加 "safe for work", "appropriate" 等词
-5. 启用 Stable Diffusion WebUI 的 Safety Checker
+```toml
+[image_review]
+enabled = true
+api_base_url = "http://127.0.0.1:11434/v1"
+model_name = "llava:13b"
 
-### ❌ 避免做法：
-1. 不要使用专门的 NSFW 模型
-2. 不要在提示词中使用敏感词汇
-3. 不要将 `cfg_scale` 设置过高（>12）
-4. 不要完全依赖负面提示词
+# 不启用任何名单 = 审查总开关开启但不审查任何人
+# 如需审查所有群，请将所有群ID加入白名单
+[group_whitelist]
+enabled = true
+group_ids = [123, 456, 789]  # 填入所有需要审查的群ID
+```
 
----
+### 示例 2：只审查特定群
 
-## 📞 技术支持
+```toml
+[image_review]
+enabled = true
 
-如果仍然遇到 NSFW 内容问题：
+[group_blacklist]
+enabled = true
+group_ids = [123456789]  # 只有这个群会被审查
+```
 
-1. **检查模型**: 确认使用的是 SFW 模型
-2. **检查提示词**: 查看是否包含敏感词汇
-3. **调整参数**: 降低 `cfg_scale`，调整采样器
-4. **启用安全检查**: 在 WebUI 中启用 Safety Checker
-5. **更换模型**: 尝试使用官方的 Stable Diffusion 2.1
+### 示例 3：只审查特定用户的私聊
 
----
+```toml
+[image_review]
+enabled = true
 
-## 🔗 相关资源
+[private_blacklist]
+enabled = true
+user_ids = ["10001", "10002"]  # 只有这些用户会被审查
+```
 
-- [Stable Diffusion WebUI Wiki](https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki)
-- [Safe Models List](https://civitai.com/models?tag=sfw)
-- [Negative Prompt Guide](https://stable-diffusion-art.com/negative-prompt/)
+## 视觉模型推荐
 
----
+### 本地部署（推荐）
 
-**最后提醒**: 负面提示词是辅助手段，**使用 SFW 模型才是根本解决方案**！
+- **LLaVA**: 开源视觉语言模型，支持本地部署
+  - Ollama: `ollama run llava:13b`
+  - vLLM: 支持 OpenAI 兼容 API
+
+- **Qwen-VL**: 阿里通义千问视觉模型
+  - 支持 Ollama 部署
+
+### 云端 API
+
+- **GPT-4o**: OpenAI 多模态模型
+- **Claude 3**: Anthropic 多模态模型
+- **通义千问 VL**: 阿里云 API
+
+## 审查提示词优化
+
+默认的审查提示词已能满足大部分需求，但你也可以根据场景自定义：
+
+```toml
+review_prompt = """请判断这张图片是否包含以下违规内容：
+1. 色情或裸露
+2. 暴力或血腥
+3. 政治敏感
+4. 其他违规内容
+
+请只返回 JSON：{"safe": true/false, "reason": "原因"}"""
+```
+
+## 常见问题
+
+### Q: 审查速度慢怎么办？
+
+**A**: 可以尝试：
+1. 使用更轻量的视觉模型（如 llava:7b）
+2. 优化审查提示词，减少输出长度
+3. 考虑使用云端 API
+
+### Q: 审查结果不准确怎么办？
+
+**A**: 可以：
+1. 调整审查提示词，明确违规标准
+2. 尝试更强的视觉模型
+3. 在提示词中提供具体的判断标准
+
+### Q: 如何跳过某些群的审查？
+
+**A**: 不将该群的 ID 加入任何名单即可。黑白名单是"审查名单"，不在名单中就不会被审查。
+
+## 技术实现
+
+审查流程：
+1. 图像生成完成后，获取 base64 编码
+2. 调用视觉模型 API，发送图像和审查提示词
+3. 解析模型返回的 JSON 结果
+4. 如果 `safe: false`，拦截图像并向用户发送违规提示
+5. 如果 `safe: true`，正常发送图像
+
+API 请求格式（OpenAI 兼容）：
+```json
+{
+  "model": "llava:13b",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {"type": "text", "text": "审查提示词"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}}
+      ]
+    }
+  ],
+  "max_tokens": 200,
+  "temperature": 0.1
+}
+```
+
+返回格式：
+```json
+{
+  "safe": false,
+  "reason": "图片包含裸露内容"
+}
+```
