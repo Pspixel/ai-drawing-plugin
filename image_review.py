@@ -68,6 +68,8 @@ class ImageReviewer:
                 "messages": messages,
                 "max_tokens": 200,
                 "temperature": 0.1,
+                # 关闭思维链模式，确保模型直接输出结果而非 reasoning_content
+                "enable_thinking": False,
             }
 
             # 发送请求
@@ -81,7 +83,15 @@ class ImageReviewer:
                         return False, "审查服务请求失败"
 
                     result = await response.json()
-                    content = result["choices"][0]["message"]["content"].strip()
+                    message = result["choices"][0]["message"]
+                    content = (message.get("content") or "").strip()
+
+                    # 兼容思维链模型（如 Qwen3）：content 为空时尝试 reasoning_content
+                    if not content:
+                        reasoning = (message.get("reasoning_content") or "").strip()
+                        if reasoning:
+                            logger.debug("content 为空，使用 reasoning_content（思维链输出）")
+                            content = reasoning
 
             logger.debug("审查模型返回内容: %s", content[:200])
 
@@ -174,12 +184,9 @@ class ImageReviewer:
 
         逻辑说明：
         - 审查总开关未开启 → 不审查任何图像，直接发送
-        - 审查总开关开启 → 由黑白名单决定谁来审查
-          - 白名单模式：仅白名单中的用户/群审查，其余不审查
-          - 黑名单模式：仅黑名单中的用户/群审查，其余不审查
-          - 白名单+黑名单同时启用：优先检查白名单，命中则审查；
-            未命中白名单再检查黑名单，命中则审查；都不命中则不审查
-          - 黑白名单都未启用 → 不审查任何图像（相当于只开了总开关但没配置名单）
+        - 审查总开关开启 → 由名单模式决定审查范围
+          - 白名单模式（默认）：名单中的用户/群直接放行（不审查），其余需要审查
+          - 黑名单模式：名单中的用户/群需要审查，其余直接放行（不审查）
 
         Args:
             is_group: 是否为群聊
@@ -200,43 +207,30 @@ class ImageReviewer:
 
         if is_group:
             # 群聊场景
-            # 检查白名单：白名单中的群需要审查
-            group_whitelist_enabled = config_getter("group_whitelist.enabled", False)
-            if group_whitelist_enabled:
-                group_whitelist = config_getter("group_whitelist.group_ids", [])
-                if ImageReviewer._match_id(group_id, group_whitelist):
-                    logger.info("群 %s 命中白名单，需要审查", group_id)
-                    return True  # 白名单命中，需要审查
-
-            # 检查黑名单：黑名单中的群需要审查
-            group_blacklist_enabled = config_getter("group_blacklist.enabled", False)
-            if group_blacklist_enabled:
-                group_blacklist = config_getter("group_blacklist.group_ids", [])
-                if ImageReviewer._match_id(group_id, group_blacklist):
-                    logger.info("群 %s 命中黑名单，需要审查", group_id)
-                    return True  # 黑名单命中，需要审查
-
-            # 不在任何名单中，不审查
-            logger.debug("群 %s 不在任何名单中，跳过审查", group_id)
-            return False
+            mode = config_getter("image_review.group_mode", "whitelist")
+            id_list = config_getter("image_review.group_ids", [])
+            target_id = group_id
+            context = f"群 {group_id}"
         else:
             # 私聊场景
-            # 检查白名单：白名单中的用户需要审查
-            private_whitelist_enabled = config_getter("private_whitelist.enabled", False)
-            if private_whitelist_enabled:
-                private_whitelist = config_getter("private_whitelist.user_ids", [])
-                if ImageReviewer._match_id(user_id, private_whitelist):
-                    logger.info("用户 %s 命中白名单，需要审查", user_id)
-                    return True  # 白名单命中，需要审查
+            mode = config_getter("image_review.private_mode", "whitelist")
+            id_list = config_getter("image_review.private_ids", [])
+            target_id = user_id
+            context = f"用户 {user_id}"
 
-            # 检查黑名单：黑名单中的用户需要审查
-            private_blacklist_enabled = config_getter("private_blacklist.enabled", False)
-            if private_blacklist_enabled:
-                private_blacklist = config_getter("private_blacklist.user_ids", [])
-                if ImageReviewer._match_id(user_id, private_blacklist):
-                    logger.info("用户 %s 命中黑名单，需要审查", user_id)
-                    return True  # 黑名单命中，需要审查
+        is_in_list = ImageReviewer._match_id(target_id, id_list)
 
-            # 不在任何名单中，不审查
-            logger.debug("用户 %s 不在任何名单中，跳过审查", user_id)
+        if mode == "blacklist":
+            # 黑名单模式：名单中的需要审查，名单外的直接放行
+            if is_in_list:
+                logger.info("%s 命中黑名单，需要审查", context)
+                return True
+            logger.debug("%s 不在黑名单中，跳过审查", context)
             return False
+        else:
+            # 白名单模式（默认）：名单中的直接放行，名单外的需要审查
+            if is_in_list:
+                logger.info("%s 命中白名单，直接放行", context)
+                return False
+            logger.debug("%s 不在白名单中，需要审查", context)
+            return True

@@ -9,10 +9,6 @@ CONFIG_SECTION_DESCRIPTIONS = {
     "generation": "图像生成参数配置",
     "bot": "机器人相关配置",
     "image_review": "图像审查配置",
-    "private_whitelist": "私聊白名单配置",
-    "private_blacklist": "私聊黑名单配置",
-    "group_whitelist": "群聊白名单配置",
-    "group_blacklist": "群聊黑名单配置",
 }
 
 # 配置 Schema
@@ -25,7 +21,7 @@ CONFIG_SCHEMA = {
         ),
         "config_version": ConfigField(
             type=str,
-            default="2.0.0",
+            default="2.0.1",
             description="配置文件版本"
         ),
         "debug_mode": ConfigField(
@@ -174,7 +170,7 @@ CONFIG_SCHEMA = {
         "review_prompt": ConfigField(
             type=str,
             default=(
-                "你是一个图像安全审查助手。请分析这张图片是否包含色情、裸露或违规内容。"
+                "你是一个图像安全审查助手。请分析这张图片是否包含色情、裸露或违规内容。注意由于使用地在日本，根据日本的法律只要图中的角色没有直接裸露出生殖器,乳头，肛门等敏感部位则不算违规，穿着暴露或者仅仅只是挡住关键部分（例如三点式比基尼，创可贴贴住乳头等部位）并没有裸露的软色情不算做违规。"
                 "请仅输出JSON格式的结果，不要输出其他任何内容。"
                 'JSON格式如下：{"safe": true/false, "reason": "判断理由（简短描述）"}'
                 "其中 safe 为 true 表示图片安全合规，false 表示图片违规。"
@@ -193,61 +189,31 @@ CONFIG_SCHEMA = {
             default="⚠️ 图像审查服务异常，为安全起见已拦截输出。",
             description="图像审查服务异常时的提示消息",
         ),
-    },
-    "private_whitelist": {
-        "enabled": ConfigField(
-            type=bool,
-            default=False,
-            description="是否启用私聊白名单（启用后仅白名单中的用户会被审查）"
+        "private_mode": ConfigField(
+            type=str,
+            default="whitelist",
+            description="私聊审查模式: whitelist(白名单模式，名单内不审查直接输出) / blacklist(黑名单模式，名单外直接输出)",
+            example="whitelist",
         ),
-        "user_ids": ConfigField(
+        "private_ids": ConfigField(
             type=list,
             default=[],
-            description="私聊白名单用户ID列表",
+            description='私聊黑白名单用户ID列表（配合 private_mode 使用）。TOML 示例: private_ids = ["123456789", "987654321"]',
             item_type="string",
-            hint="填写需要进行图像审查的用户ID",
+            hint="建议填写字符串类型（带引号），如 ['123456789']。白名单模式: 名单内用户不审查直接输出; 黑名单模式: 名单内用户需要审查",
         ),
-    },
-    "private_blacklist": {
-        "enabled": ConfigField(
-            type=bool,
-            default=False,
-            description="是否启用私聊黑名单（启用后仅黑名单中的用户会被审查）"
-        ),
-        "user_ids": ConfigField(
-            type=list,
-            default=[],
-            description="私聊黑名单用户ID列表",
-            item_type="string",
-            hint="填写需要进行图像审查的用户ID",
-        ),
-    },
-    "group_whitelist": {
-        "enabled": ConfigField(
-            type=bool,
-            default=False,
-            description="是否启用群聊白名单（启用后仅白名单中的群会被审查）"
+        "group_mode": ConfigField(
+            type=str,
+            default="whitelist",
+            description="群聊审查模式: whitelist(白名单模式，名单内不审查直接输出) / blacklist(黑名单模式，名单外直接输出)",
+            example="whitelist",
         ),
         "group_ids": ConfigField(
             type=list,
             default=[],
-            description="群聊白名单群ID列表",
+            description='群聊黑白名单群ID列表（配合 group_mode 使用）。TOML 示例: group_ids = ["123456789", "987654321"]',
             item_type="string",
-            hint="填写需要进行图像审查的群ID",
-        ),
-    },
-    "group_blacklist": {
-        "enabled": ConfigField(
-            type=bool,
-            default=False,
-            description="是否启用群聊黑名单（启用后仅黑名单中的群会被审查）"
-        ),
-        "group_ids": ConfigField(
-            type=list,
-            default=[],
-            description="群聊黑名单群ID列表",
-            item_type="string",
-            hint="填写需要进行图像审查的群ID",
+            hint="建议填写字符串类型（带引号），如 ['123456789']。白名单模式: 名单内群不审查直接输出; 黑名单模式: 名单内群需要审查",
         ),
     },
 }
