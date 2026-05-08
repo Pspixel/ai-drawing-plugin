@@ -10,7 +10,7 @@
 - ⚙️ **灵活配置**: 支持丰富的参数配置，包括分辨率、采样器、高分修复等
 - 🖼️ **自画像功能**: 机器人可以根据配置的外观描述生成自己的画像
 - 💬 **风格化回复**: 使用 LLM 生成活泼可爱的个性化回复消息
-- 🛡️ **图像审查**: 支持通过视觉模型对生成的图像进行内容审查，可配置黑白名单
+- 🛡️ **图像审查**: 支持通过视觉模型对生成的图像进行内容审查，可配置名单模式（白名单/黑名单）
 
 ## 📦 依赖要求
 
@@ -173,55 +173,44 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 
 ### 图像审查配置
 
-插件支持通过视觉模型（如 LLaVA、GPT-4o 等）对生成的图像进行内容审查，可配置黑白名单控制审查范围。
+插件支持通过视觉模型（如 LLaVA、GPT-4o 等）对生成的图像进行内容审查，可通过名单模式灵活控制审查范围。
 
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
 | `image_review.enabled` | bool | `false` | 是否启用图像审查功能 |
-| `image_review.api_base_url` | string | `http://127.0.0.1:11434/v1` | 视觉模型 API 地址（OpenAI 兼容格式） |
-| `image_review.api_key` | string | `""` | API 密钥（可为空） |
-| `image_review.model_name` | string | `llava:13b` | 视觉模型名称 |
-| `image_review.review_prompt` | string | `请判断这张图片...` | 审查提示词（要求模型返回 JSON 格式） |
+| `image_review.vision_api_base_url` | string | `http://localhost:11434/v1` | 视觉模型 API 地址（OpenAI 兼容格式） |
+| `image_review.vision_api_key` | string | `""` | API 密钥（本地部署可留空） |
+| `image_review.vision_model_name` | string | `llava` | 视觉模型名称 |
+| `image_review.review_prompt` | string | `你是一个图像安全审查助手...` | 审查提示词（要求模型返回 JSON 格式） |
+| `image_review.block_message` | string | `⚠️ 生成的图片未通过安全审查...` | 图片违规时的拦截提示消息 |
+| `image_review.review_error_message` | string | `⚠️ 图像审查服务异常...` | 审查服务异常时的提示消息 |
+| `image_review.private_mode` | string | `whitelist` | 私聊审查模式：`whitelist`（白名单）/ `blacklist`（黑名单） |
+| `image_review.private_ids` | list | `[]` | 私聊名单用户ID列表 |
+| `image_review.group_mode` | string | `whitelist` | 群聊审查模式：`whitelist`（白名单）/ `blacklist`（黑名单） |
+| `image_review.group_ids` | list | `[]` | 群聊名单群ID列表 |
 
-#### 黑白名单配置
-
-| 配置项 | 类型 | 默认值 | 说明 |
-|--------|------|--------|------|
-| `group_blacklist.enabled` | bool | `false` | 是否启用群聊黑名单 |
-| `group_blacklist.group_ids` | list | `[]` | 黑名单群ID列表（名单中的群会被审查） |
-| `group_whitelist.enabled` | bool | `false` | 是否启用群聊白名单 |
-| `group_whitelist.group_ids` | list | `[]` | 白名单群ID列表（名单中的群会被审查） |
-| `private_blacklist.enabled` | bool | `false` | 是否启用私聊黑名单 |
-| `private_blacklist.user_ids` | list | `[]` | 黑名单用户ID列表 |
-| `private_whitelist.enabled` | bool | `false` | 是否启用私聊白名单 |
-| `private_whitelist.user_ids` | list | `[]` | 白名单用户ID列表 |
-
-**黑白名单逻辑说明：**
+**名单模式逻辑说明：**
 - 审查总开关关闭 → 不审查任何图像，直接发送
-- 审查总开关开启 → 由黑白名单决定谁来审查
-  - 启用白名单：仅白名单中的用户/群会被审查
-  - 启用黑名单：仅黑名单中的用户/群会被审查
-  - 黑白名单可同时启用，命中任一名单都会审查
-  - 黑白名单都未启用 → 不审查任何图像
+- 审查总开关开启 → 由名单模式决定审查范围
+  - **白名单模式**（默认）：名单中的用户/群直接放行（不审查），其余需要审查
+  - **黑名单模式**：名单中的用户/群需要审查，其余直接放行（不审查）
 
 #### 配置示例
 
 ```toml
 [image_review]
 enabled = true
-api_base_url = "http://127.0.0.1:11434/v1"
-api_key = ""
-model_name = "llava:13b"
+vision_api_base_url = "http://127.0.0.1:11434/v1"
+vision_api_key = ""
+vision_model_name = "llava"
 
-# 群聊黑名单：名单中的群会被审查
-[group_blacklist]
-enabled = true
-group_ids = [123456789, 987654321]
+# 群聊使用黑名单模式：名单中的群需要审查，其余直接放行
+group_mode = "blacklist"
+group_ids = ["123456789", "987654321"]
 
-# 私聊白名单：名单中的用户会被审查
-[private_whitelist]
-enabled = true
-user_ids = ["10001", "10002"]
+# 私聊使用白名单模式（默认）：名单中的用户直接放行，其余需要审查
+private_mode = "whitelist"
+private_ids = ["10001", "10002"]
 ```
 
 ## 🎯 Action 组件说明
