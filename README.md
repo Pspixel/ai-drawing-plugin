@@ -2,6 +2,14 @@
 
 基于 Stable Diffusion WebUI API 的 AI 绘图插件，为 MaiBot 提供强大的图像生成能力。
 
+## 📚 文档导航
+
+- **[README.md](README.md)** - 主文档（本文档），包含功能介绍、安装配置、使用方法等
+- **[CONFIG_FIX_GUIDE.md](CONFIG_FIX_GUIDE.md)** - 配置文件修复指南，解决 TOML 中文键名格式问题
+- **[config_example.toml](config_example.toml)** - 完整配置示例文件，展示正确的配置格式
+- **[NSFW_FILTER_GUIDE.md](NSFW_FILTER_GUIDE.md)** - 图像审查功能配置指南
+- **[STRUCTURE.md](STRUCTURE.md)** - 插件项目结构说明
+
 ## ✨ 功能特性
 
 - 🤖 **智能绘图 (Action)**: 机器人可以根据对话上下文智能判断何时生成图片
