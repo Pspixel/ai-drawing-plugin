@@ -2,7 +2,7 @@
   "manifest_version": 1,
   "name": "AI 绘图插件",
   "version": "1.2.0",
-  "description": "基于 Stable Diffusion WebUI API 的 AI 绘图插件，支持智能绘图和命令绘图，提供 Action 和 Command 组件，支持模型切换、采样器调整、图像审查和黑白名单等高级功能",
+  "description": "基于 Stable Diffusion WebUI API 的 AI 绘图插件，支持智能绘图和命令绘图，提供 Action 和 Command 组件，支持模型切换、采样器调整、多画师风格配置、图像审查和黑白名单等高级功能",
   "author": {
     "name": "Pspixel",
     "url": "https://github.com/Pspixel"
@@ -22,7 +22,9 @@
     "SD",
     "图片生成",
     "图像审查",
-    "NSFW过滤"
+    "NSFW过滤",
+    "画师风格",
+    "多风格"
   ],
   "categories": [
     "Content Generation",

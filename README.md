@@ -9,6 +9,7 @@
 - 🔄 **模型管理**: 查看和切换 Stable Diffusion 模型
 - ⚙️ **灵活配置**: 支持丰富的参数配置，包括分辨率、采样器、高分修复等
 - 🖼️ **自画像功能**: 机器人可以根据配置的外观描述生成自己的画像
+- 🎨 **多风格支持**: 支持配置多个画师风格的 tag 组合，用户可在对话中指定使用哪个风格
 - 💬 **风格化回复**: 使用 LLM 生成活泼可爱的个性化回复消息
 - 🛡️ **图像审查**: 支持通过视觉模型对生成的图像进行内容审查，可配置名单模式（白名单/黑名单）
 
@@ -85,6 +86,12 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 用户: 画一张你的自画像
 机器人: 正在为你生成图片，请稍等...
 机器人: [根据配置的外观描述生成图片]
+```
+
+```
+用户: 用动漫风格画一个可爱的猫耳娘
+机器人: 正在为你生成图片，请稍等...
+机器人: [使用动漫风格的 tag 组合生成图片]
 ```
 
 ### 命令绘图 (Command)
@@ -171,6 +178,110 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 |--------|------|--------|------|
 | `bot.appearance_description` | string | `a cute anime girl...` | 机器人外观描述（用于自画像） |
 
+### 画师风格配置
+
+插件支持配置多个画师风格的 tag 组合，用户可以在对话中指定使用哪个风格。**注意：只有用户明确指定风格时才会使用这些 tag，未指定时不会添加任何风格标签。**
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `artist_styles.enabled` | bool | `false` | 是否启用画师风格功能 |
+| `artist_styles.styles` | dict | 包含多个示例风格 | 画师风格标签配置（字典格式，键为中文风格名称，值为对应的英文 tag 串） |
+
+#### ⚠️ 重要：修复自动生成的配置格式
+
+自动生成的 `config.toml` 文件中，中文键名可能没有双引号，例如：
+
+```toml
+# ❌ 错误格式（自动生成的）
+[artist_styles.styles]
+画师bakup = "naga u, (tyakomes:0.95), henreader, baku-p"
+画师柚子社团 = "Yuzusoft, Senren Banka"
+```
+
+**你需要手动修改为正确格式（给中文键名添加双引号）：**
+
+```toml
+# ✅ 正确格式（手动修改后）
+[artist_styles.styles]
+"画师bakup" = "naga u, (tyakomes:0.95), henreader, baku-p"
+"画师柚子社团" = "Yuzusoft, Senren Banka"
+```
+
+#### 配置说明
+
+**风格标签可以包含：**
+1. **通用风格描述**: 如 `anime style, vibrant colors, cel shading`
+2. **画师名称标签**: 如 `naga u, tyakomes, henreader, baku-p`
+3. **带权重的画师标签**: 如 `(tyakomes:0.95), (naga u:1.2)` - 权重范围通常为 0.5-1.5，数值越大影响越强
+
+**TOML 配置格式要求：**
+- **中文键名必须用双引号包裹**，例如 `"动漫风格" = "..."`
+- 如果键名是纯英文或数字，可以不加引号
+- **自动生成的配置文件中中文键名可能缺少引号，需要手动添加**
+- 初始配置文件中包含多个示例风格（画师bakup、画师柚子社团等），你可以参考它们添加更多风格
+- 完整配置示例请参考 `config_example.toml` 文件
+
+#### 默认包含的示例风格
+
+自动生成的配置文件会包含以下示例风格（记得添加双引号）：
+
+- `"画师bakup"` - naga u, (tyakomes:0.95), henreader, baku-p
+- `"画师柚子社团"` - Yuzusoft, Senren Banka
+- `"画师混合A"` - (naga u:1.1), (tyakomes:0.9), vibrant colors
+- `"画师混合B"` - Yuzusoft, (henreader:0.95), detailed
+
+#### 配置示例
+
+```toml
+[artist_styles]
+enabled = true
+
+[artist_styles.styles]
+"画师bakup" = "naga u, (tyakomes:0.95), henreader, baku-p"
+"画师柚子社团" = "Yuzusoft, Senren Banka"
+"画师混合A" = "(naga u:1.1), (tyakomes:0.9), vibrant colors"
+"画师混合B" = "Yuzusoft, (henreader:0.95), detailed"
+"动漫" = "anime style, vibrant colors, cel shading, clean lines"
+"写实" = "photorealistic, ultra detailed, 8k, professional photography"
+"油画" = "oil painting, traditional art, brush strokes, canvas texture"
+```
+
+#### 使用方法
+
+启用画师风格功能后，用户可以在对话中指定风格：
+
+```
+用户: 用画师bakup风格画一个女孩
+机器人: [使用 "naga u, (tyakomes:0.95), henreader, baku-p" 标签生成图片]
+
+用户: 用画师柚子社团风格画一个场景
+机器人: [使用 "Yuzusoft, Senren Banka" 标签生成图片]
+
+用户: 用动漫风格画一个猫耳娘
+机器人: [使用 "动漫" 风格的 tag 生成图片]
+
+用户: 画一个女孩（未指定风格）
+机器人: [不使用任何风格标签，仅使用用户描述和质量提示词生成]
+```
+
+**重要：** 只有用户明确指定风格时才会使用对应的风格标签，如果用户没有指定风格，则不会添加任何风格相关的 tag。
+
+#### 画师标签说明
+
+**常见画师标签示例：**
+- `naga u` - 知名插画师风格
+- `tyakomes` - 特定画师风格
+- `henreader` - 特定画师风格
+- `baku-p` - 特定画师风格
+
+**权重语法：**
+- `(artist:1.0)` - 标准强度（默认）
+- `(artist:0.8)` - 降低影响（80%）
+- `(artist:1.2)` - 增强影响（120%）
+- 可以组合多个画师：`(naga u:1.1), (tyakomes:0.95), henreader`
+
+**提示：** 画师标签会直接影响生成图像的艺术风格，建议根据实际效果调整权重值。
+
 ### 图像审查配置
 
 插件支持通过视觉模型（如 LLaVA、GPT-4o 等）对生成的图像进行内容审查，可通过名单模式灵活控制审查范围。
@@ -228,6 +339,7 @@ private_ids = ["10001", "10002"]
 
 **参数**:
 - `prompt`: 图像描述词（必需）
+- `style`: 画师风格名称（可选，当启用风格功能且用户指定风格时使用）
 - `width`: 图像宽度（可选）
 - `height`: 图像高度（可选）
 - `enable_hr`: 是否启用高分修复（可选）

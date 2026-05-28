@@ -42,18 +42,45 @@ class AIDrawingPlugin(BasePlugin):
         # 读取机器人外观描述配置
         bot_appearance = self.get_config("bot.appearance_description", "")
 
-        # 动态构建 action_require，将外观描述嵌入其中
+        # 读取画师风格配置
+        styles_enabled = self.get_config("artist_styles.enabled", False)
+        available_styles = self.get_config("artist_styles.styles", {})
+
+        # 动态构建 action_require，将外观描述和风格列表嵌入其中
+        custom_require = [
+            "当用户明确要求生成图片、绘画、画图时使用",
+            "当用户描述了想要的图像内容时使用",
+        ]
+
+        # 添加自画像说明
         if bot_appearance:
-            # 创建新的 action_require，包含实际的外观描述
-            custom_require = [
-                "当用户明确要求生成图片、绘画、画图时使用",
-                "当用户描述了想要的图像内容时使用",
-                f"当用户要求画你自己、画自画像、画机器人自己时，必须使用以下外观描述作为 prompt 参数：{bot_appearance}",
-                "重要：prompt 参数必须使用英文标签，不要使用中文。将用户的中文描述转换为英文标签",
-                "标签示例：人物特征(loli, girl, boy)、发色(white hair, black hair, blonde hair)、发型(long hair, short hair, twin tails, ponytail)、眼睛(red eyes, blue eyes, green eyes)、服装(dress, school uniform, maid outfit)、动作(standing, sitting, running, smiling)、配饰(cat ears, glasses, ribbon, hat)",
-            ]
-            # 修改 action_info 的 action_require
-            action_info.action_require = custom_require
+            custom_require.append(
+                f"当用户要求画你自己、画自画像、画机器人自己时，必须使用以下外观描述作为 prompt 参数：{bot_appearance}"
+            )
+        else:
+            custom_require.append(
+                "当用户要求画你自己、画自画像、画机器人自己时，必须从配置文件 bot.appearance_description 读取机器人外观描述，并将其作为 prompt 参数传入"
+            )
+
+        custom_require.extend([
+            "重要：prompt 参数必须使用英文标签，不要使用中文。将用户的中文描述转换为英文标签",
+            "标签示例：人物特征(loli, girl, boy)、发色(white hair, black hair, blonde hair)、发型(long hair, short hair, twin tails, ponytail)、眼睛(red eyes, blue eyes, green eyes)、服装(dress, school uniform, maid outfit)、动作(standing, sitting, running, smiling)、配饰(cat ears, glasses, ribbon, hat)",
+        ])
+
+        # 添加画师风格说明
+        if styles_enabled and available_styles:
+            style_list = ", ".join([f"'{name}'" for name in available_styles.keys()])
+            style_details = "\n".join([f"  - {name}: {tags}" for name, tags in available_styles.items()])
+            custom_require.append(
+                f"画师风格功能已启用！当用户在对话中明确指定使用某个风格时（如'用动漫风格画'、'用写实风格'等），需要在 style 参数中填写对应的风格名称。可用风格列表: {style_list}。各风格对应的标签如下:\n{style_details}\n注意：只有用户明确指定风格时才填写 style 参数，如果用户没有指定风格，则不要填写 style 参数（留空或不传）"
+            )
+        else:
+            custom_require.append(
+                "画师风格功能未启用，用户无法指定风格"
+            )
+
+        # 修改 action_info 的 action_require
+        action_info.action_require = custom_require
 
         return [
             # Action 组件

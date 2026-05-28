@@ -1,0 +1,71 @@
+# AI 绘图插件配置示例
+# 此文件展示了如何正确配置画师风格功能
+
+[plugin]
+enabled = true
+config_version = "2.0.1"
+debug_mode = false
+
+[api]
+base_url = "http://localhost:7860"
+
+[generation]
+quality_prompt = "masterpiece, best quality, highly detailed"
+content_prompt = ""
+negative_prompt = "(nsfw:1.5), (nude:1.5), (explicit:1.5), lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry"
+width = 512
+height = 512
+steps = 20
+cfg_scale = 7.0
+sampler_name = "Euler a"
+scheduler = ""
+enable_hr = false
+hr_scale = 2.0
+hr_upscaler = "Latent"
+denoising_strength = 0.7
+hr_second_pass_steps = 0
+available_samplers = ["Euler a", "Euler", "DPM++ 2M Karras", "DPM++ SDE Karras", "DPM++ 2M SDE", "DDIM", "LMS"]
+available_schedulers = ["Automatic", "Karras", "Exponential", "Polyexponential"]
+
+[bot]
+appearance_description = "a cute anime girl with blue hair and blue eyes, smiling, wearing a white dress"
+
+# ========================================
+# 画师风格配置
+# ========================================
+[artist_styles]
+enabled = true
+
+# 风格标签配置
+# 注意：
+# 1. 中文键名必须用双引号包裹
+# 2. 只有用户明确指定风格时才会使用这些 tag
+# 3. 如果用户没有指定风格，则不会添加任何风格标签
+# 4. 自动生成的配置文件中，中文键名可能没有引号，需要手动添加
+#    例如：画师bakup = "..." 需要改为 "画师bakup" = "..."
+[artist_styles.styles]
+"画师bakup" = "naga u, (tyakomes:0.95), henreader, baku-p"
+"画师柚子社团" = "Yuzusoft, Senren Banka"
+"画师混合A" = "(naga u:1.1), (tyakomes:0.9), vibrant colors"
+"画师混合B" = "Yuzusoft, (henreader:0.95), detailed"
+"动漫" = "anime style, vibrant colors, cel shading, clean lines"
+"写实" = "photorealistic, ultra detailed, 8k, professional photography"
+"油画" = "oil painting, traditional art, brush strokes, canvas texture"
+"水彩" = "watercolor painting, soft colors, paper texture, artistic"
+"赛博朋克" = "cyberpunk style, neon lights, futuristic, dark atmosphere"
+
+# 你可以添加更多自定义风格
+# "自定义风格名" = "你的 tag 串，可以包含画师名和权重"
+
+[image_review]
+enabled = false
+vision_api_base_url = "http://localhost:11434/v1"
+vision_api_key = ""
+vision_model_name = "llava"
+review_prompt = "你是一个图像安全审查助手。请分析这张图片是否包含色情、裸露或违规内容。注意由于使用地在日本，根据日本的法律只要图中的角色没有直接裸露出生殖器,乳头，肛门等敏感部位则不算违规，穿着暴露或者仅仅只是挡住关键部分（例如三点式比基尼，创可贴贴住乳头等部位）并没有裸露的软色情不算做违规。请仅输出JSON格式的结果，不要输出其他任何内容。JSON格式如下：{\"safe\": true/false, \"reason\": \"判断理由（简短描述）\"}其中 safe 为 true 表示图片安全合规，false 表示图片违规。"
+block_message = "⚠️ 生成的图片未通过安全审查，已拦截输出。"
+review_error_message = "⚠️ 图像审查服务异常，为安全起见已拦截输出。"
+private_mode = "whitelist"
+private_ids = []
+group_mode = "whitelist"
+group_ids = []

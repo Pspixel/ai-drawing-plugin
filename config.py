@@ -8,6 +8,7 @@ CONFIG_SECTION_DESCRIPTIONS = {
     "api": "Stable Diffusion API 配置",
     "generation": "图像生成参数配置",
     "bot": "机器人相关配置",
+    "artist_styles": "画师风格配置",
     "image_review": "图像审查配置",
 }
 
@@ -141,6 +142,24 @@ CONFIG_SCHEMA = {
             type=str,
             default="a cute anime girl with blue hair and blue eyes, smiling, wearing a white dress",
             description="机器人的外观描述（用于自画像功能）",
+        ),
+    },
+    "artist_styles": {
+        "enabled": ConfigField(
+            type=bool,
+            default=False,
+            description="是否启用画师风格功能（启用后用户可以在对话中指定使用哪个风格，未指定时不添加风格标签）",
+        ),
+        "styles": ConfigField(
+            type=dict,
+            default={
+                "画师bakup": "naga u, (tyakomes:0.95), henreader, baku-p",
+                "画师柚子社团": "Yuzusoft, Senren Banka",
+                "画师混合A": "(naga u:1.1), (tyakomes:0.9), vibrant colors",
+                "画师混合B": "Yuzusoft, (henreader:0.95), detailed",
+            },
+            description="画师风格标签配置（字典格式，键为中文风格名称，值为对应的英文 tag 串）。可以使用画师名称标签来指定特定画师的风格，注意：自动生成的 TOML 文件中，中文键名可能没有引号，需要手动添加双引号",
+            hint='可以添加任意数量的风格。TOML 格式要求中文键名必须用双引号包裹:\n[artist_styles.styles]\n"画师bakup" = "naga u, (tyakomes:0.95), henreader, baku-p"\n"画师柚子社团" = "Yuzusoft, Senren Banka"\n"动漫风格" = "anime, colorful"\n\n如果自动生成的配置文件中键名没有引号（如 画师bakup = "..."），请手动添加双引号改为 "画师bakup" = "..."',
         ),
     },
     "image_review": {
