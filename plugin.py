@@ -13,6 +13,10 @@ from .commands import (
     SwitchModelCommand,
     SwitchSamplerCommand,
     SwitchSchedulerCommand,
+    ListModulesCommand,
+    AddModuleCommand,
+    RemoveModuleCommand,
+    ClearModulesCommand,
 )
 from .config import CONFIG_SCHEMA, CONFIG_SECTION_DESCRIPTIONS
 
@@ -92,4 +96,9 @@ class AIDrawingPlugin(BasePlugin):
             (SwitchModelCommand.get_command_info(), SwitchModelCommand),
             (SwitchSamplerCommand.get_command_info(), SwitchSamplerCommand),
             (SwitchSchedulerCommand.get_command_info(), SwitchSchedulerCommand),
+            # 附加模块管理命令
+            (ListModulesCommand.get_command_info(), ListModulesCommand),
+            (AddModuleCommand.get_command_info(), AddModuleCommand),
+            (RemoveModuleCommand.get_command_info(), RemoveModuleCommand),
+            (ClearModulesCommand.get_command_info(), ClearModulesCommand),
         ]

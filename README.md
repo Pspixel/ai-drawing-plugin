@@ -15,6 +15,7 @@
 - 🤖 **智能绘图 (Action)**: 机器人可以根据对话上下文智能判断何时生成图片
 - 💻 **命令绘图 (Command)**: 通过命令直接生成图片
 - 🔄 **模型管理**: 查看和切换 Stable Diffusion 模型
+- 🧩 **附加模块管理**: 动态加载外挂 VAE / Text Encoder（SD-Forge 专用）
 - ⚙️ **灵活配置**: 支持丰富的参数配置，包括分辨率、采样器、高分修复等
 - 🖼️ **自画像功能**: 机器人可以根据配置的外观描述生成自己的画像
 - 🎨 **多风格支持**: 支持配置多个画师风格的 tag 组合，用户可在对话中指定使用哪个风格
@@ -153,6 +154,39 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 
 查看可用的调度器列表或切换到指定调度器。
 
+#### `/listmodules` - 查看可用附加模块
+
+```
+/listmodules
+```
+
+从 SD WebUI（SD-Forge）拉取可用的附加模块列表（VAE / Text Encoder），并标注当前已激活的模块。
+
+#### `/addmodule <模块名>` - 激活附加模块
+
+```
+/addmodule vae-ft-mse-840000-ema-pruned.safetensors
+/addmodule clip_l.safetensors
+```
+
+将指定模块加入当前会话的激活列表，后续所有绘图请求（`/draw` 命令和 Action）都会附带这些模块。重启后自动清空，若需默认启用请在配置文件中设置。
+
+#### `/removemodule <模块名>` - 取消激活附加模块
+
+```
+/removemodule vae-ft-mse-840000-ema-pruned.safetensors
+```
+
+从当前会话的激活列表中移除指定模块。
+
+#### `/clearmodules` - 清空所有激活的附加模块
+
+```
+/clearmodules
+```
+
+清空当前会话所有已激活的附加模块。
+
 ## ⚙️ 配置说明
 
 ### API 配置
@@ -179,6 +213,7 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 | `generation.denoising_strength` | float | `0.7` | 去噪强度 |
 | `generation.available_samplers` | list | `["Euler a", ...]` | 可用的采样器列表 |
 | `generation.available_schedulers` | list | `["Automatic", ...]` | 可用的调度器列表 |
+| `generation.default_additional_modules` | list | `[]` | 默认外挂附加模块列表（VAE / Text Encoder），填写模块的 model_name，留空则不启用 |
 
 ### 机器人配置
 
@@ -395,6 +430,30 @@ private_ids = ["10001", "10002"]
 **命令格式**:
 - `/scheduler` - 查看可用调度器列表
 - `/scheduler <调度器名>` - 切换到指定调度器
+
+### ListModulesCommand
+
+查看 SD WebUI（SD-Forge）可用的附加模块列表（VAE / Text Encoder）。需要 SD-Forge 支持 `/sdapi/v1/sd-modules` 端点。
+
+**命令格式**: `/listmodules`
+
+### AddModuleCommand
+
+将指定附加模块加入当前会话的激活列表，后续绘图请求将通过 `forge_additional_modules` 字段附带这些模块。重启后自动清空。
+
+**命令格式**: `/addmodule <模块名>`
+
+### RemoveModuleCommand
+
+从当前会话的激活列表中移除指定附加模块。
+
+**命令格式**: `/removemodule <模块名>`
+
+### ClearModulesCommand
+
+清空当前会话所有已激活的附加模块。
+
+**命令格式**: `/clearmodules`
 
 ## 🔧 高级用法
 

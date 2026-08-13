@@ -244,6 +244,27 @@ class StableDiffusionClient:
             lines.append(line)
         return "\n".join(lines)
 
+    async def get_modules(self) -> Optional[List[Dict[str, Any]]]:
+        """获取可用附加模块列表（VAE / Text Encoder）
+
+        仅 SD-Forge 支持此端点。
+
+        Returns:
+            模块列表，每项包含 model_name 和 filename 字段，失败返回 None
+        """
+        url = f"{self.base_url}/sdapi/v1/sd-modules"
+
+        try:
+            async with aiohttp.ClientSession(timeout=self.timeout) as session:
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        return await response.json()
+                    else:
+                        return None
+        except Exception as e:
+            print(f"获取模块列表失败: {e}")
+            return None
+
     async def get_samplers(self) -> Optional[List[Dict[str, Any]]]:
         """获取可用采样器列表
 

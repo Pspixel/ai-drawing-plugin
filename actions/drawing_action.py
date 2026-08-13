@@ -5,6 +5,7 @@ from src.plugin_system import BaseAction, ActionActivationType
 from ..sd_client import StableDiffusionClient
 from ..utils import MessageGenerator
 from ..image_review import ImageReviewer
+from ..commands.module_commands import get_active_modules
 
 logger = logging.getLogger("ai_drawing.drawing_action")
 
@@ -173,8 +174,16 @@ class AIDrawingAction(BaseAction):
             )
             await self.send_text(start_message)
 
+            # 合并默认附加模块和运行时激活的模块（去重保序）
+            default_modules = self.get_config("generation.default_additional_modules", [])
+            active_modules = get_active_modules()
+            final_modules = list(dict.fromkeys(default_modules + active_modules))
+
             # 创建客户端并生成图像
             client = StableDiffusionClient(base_url=api_url)
+            txt2img_kwargs = {}
+            if final_modules:
+                txt2img_kwargs["forge_additional_modules"] = final_modules
             result = await client.txt2img(
                 prompt=final_prompt,
                 negative_prompt=default_negative,
@@ -189,6 +198,7 @@ class AIDrawingAction(BaseAction):
                 hr_upscaler=hr_upscaler,
                 hr_second_pass_steps=hr_second_pass_steps,
                 denoising_strength=denoising_strength,
+                **txt2img_kwargs,
             )
 
             if result and result.get("images"):

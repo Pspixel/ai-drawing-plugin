@@ -136,6 +136,13 @@ CONFIG_SCHEMA = {
             ],
             description="可用的调度器列表（用于命令切换）",
         ),
+        "default_additional_modules": ConfigField(
+            type=list,
+            default=[],
+            description="默认外挂附加模块列表（VAE / Text Encoder），填写模块的 model_name，留空则不启用。可通过 /listmodules 命令查看可用模块",
+            item_type="string",
+            hint='填写模块文件名（model_name），例如：\ndefault_additional_modules = ["vae-ft-mse-840000-ema-pruned.safetensors", "clip_l.safetensors"]\n运行时可通过 /addmodule 和 /removemodule 命令动态增减',
+        ),
     },
     "bot": {
         "appearance_description": ConfigField(

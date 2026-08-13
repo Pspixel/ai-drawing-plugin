@@ -4,6 +4,7 @@ from typing import Tuple
 from src.plugin_system import BaseCommand
 from ..sd_client import StableDiffusionClient
 from ..image_review import ImageReviewer
+from .module_commands import get_active_modules
 
 logger = logging.getLogger("ai_drawing.draw_command")
 
@@ -84,8 +85,16 @@ class DrawCommand(BaseCommand):
             # 发送开始提示
             await self.send_text("正在生成图片，请稍等...")
 
+            # 合并默认附加模块和运行时激活的模块（去重保序）
+            default_modules = self.get_config("generation.default_additional_modules", [])
+            active_modules = get_active_modules()
+            final_modules = list(dict.fromkeys(default_modules + active_modules))
+
             # 创建客户端并生成图像
             client = StableDiffusionClient(base_url=api_url)
+            txt2img_kwargs = {}
+            if final_modules:
+                txt2img_kwargs["forge_additional_modules"] = final_modules
             result = await client.txt2img(
                 prompt=final_prompt,
                 negative_prompt=default_negative,
@@ -100,6 +109,7 @@ class DrawCommand(BaseCommand):
                 hr_upscaler=hr_upscaler,
                 hr_second_pass_steps=hr_second_pass_steps,
                 denoising_strength=denoising_strength,
+                **txt2img_kwargs,
             )
 
             if result and result.get("images"):
