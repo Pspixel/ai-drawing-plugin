@@ -41,11 +41,8 @@ class ListModulesCommand(BaseCommand):
             lines = ["可用附加模块列表（VAE / Text Encoder）：", ""]
             for m in modules:
                 name = m.get("model_name", "")
-                filename = m.get("filename", "")
                 marker = " ✓" if name in _active_modules else ""
                 lines.append(f"  {name}{marker}")
-                if filename and filename != name:
-                    lines.append(f"    路径: {filename}")
 
             if _active_modules:
                 lines.append("")
