@@ -84,6 +84,12 @@ class AIDrawingPlugin(BasePlugin):
                 "画师风格功能未启用，用户无法指定风格"
             )
 
+        # 追加行为约束
+        custom_require.extend([
+            "重要：绘图失败或结果不理想时，除非用户明确要求重试或重新生成，否则禁止自行再次调用此插件绘图。",
+            "重要：在生成涉及人物的图像时，如果用户没有明确描述服装，必须在 prompt 中主动添加日常服饰相关标签（如 t-shirt、dress、jacket、school uniform、casual clothes 等），禁止遗漏服装描述，以避免模型生成裸体图像。",
+        ])
+
         # 修改 action_info 的 action_require
         action_info.action_require = custom_require
 
