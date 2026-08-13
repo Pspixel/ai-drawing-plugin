@@ -2,8 +2,8 @@
 import logging
 from typing import Tuple
 from src.plugin_system import BaseAction, ActionActivationType
-from ..sd_client import StableDiffusionClient
 from ..utils import MessageGenerator
+from ..utils.drawing_queue import DrawingQueue
 from ..image_review import ImageReviewer
 from ..commands.module_commands import get_active_modules
 from ..commands.sampler_commands import get_active_sampler, get_active_scheduler, get_active_upscaler
@@ -169,25 +169,13 @@ class AIDrawingAction(BaseAction):
 ━━━━━━━━━━━━━━━━━━━━━━"""
                 await self.send_text(debug_info)
 
-            # 使用 LLM 生成开始绘图的风格化回复
-            start_message = await MessageGenerator.generate_stylized_message(
-                "start",
-                chat_stream=self.chat_stream,
-                user_prompt=user_prompt
-            )
-            await self.send_text(start_message)
-
             # 合并默认附加模块和运行时激活的模块（去重保序）
             default_modules = self.get_config("generation.default_additional_modules", [])
             active_modules = get_active_modules()
             final_modules = list(dict.fromkeys(default_modules + active_modules))
 
-            # 创建客户端并生成图像
-            client = StableDiffusionClient(base_url=api_url)
-            txt2img_kwargs = {}
-            if final_modules:
-                txt2img_kwargs["forge_additional_modules"] = final_modules
-            result = await client.txt2img(
+            # 组装 txt2img 参数
+            txt2img_kwargs = dict(
                 prompt=final_prompt,
                 negative_prompt=default_negative,
                 width=width,
@@ -201,8 +189,48 @@ class AIDrawingAction(BaseAction):
                 hr_upscaler=hr_upscaler,
                 hr_second_pass_steps=hr_second_pass_steps,
                 denoising_strength=denoising_strength,
-                **txt2img_kwargs,
             )
+            if final_modules:
+                txt2img_kwargs["forge_additional_modules"] = final_modules
+
+            # 检查队列是否已满，满则提前拒绝
+            from ..utils.drawing_queue import QUEUE_MAX_SIZE
+            queue_size = DrawingQueue.queue_size()
+            if queue_size >= QUEUE_MAX_SIZE:
+                await self.send_text(
+                    f"绘图队列已满（当前排队 {queue_size} 个任务，最多 {QUEUE_MAX_SIZE} 个），请稍候再发起绘图请求~"
+                )
+                return False, "绘图队列已满"
+
+            # 通知用户入队状态，然后异步等待结果（等待期间机器人可正常处理其他消息）
+            if queue_size == 0:
+                queue_notice = "好的，开始为你绘制图片~"
+            else:
+                queue_notice = f"已收到绘图请求，前方还有 {queue_size} 个任务在排队，请耐心等待~"
+            await self.send_text(queue_notice)
+
+            # 使用 LLM 生成开始绘图的风格化回复
+            start_message = await MessageGenerator.generate_stylized_message(
+                "start",
+                chat_stream=self.chat_stream,
+                user_prompt=user_prompt
+            )
+            await self.send_text(start_message)
+
+            # 将任务放入队列，异步等待执行完成
+            success, result, err_msg = await DrawingQueue.enqueue(
+                client_base_url=api_url,
+                txt2img_kwargs=txt2img_kwargs,
+            )
+
+            if not success:
+                error_message = await MessageGenerator.generate_stylized_message(
+                    "error",
+                    chat_stream=self.chat_stream,
+                    error=err_msg
+                )
+                await self.send_text(error_message)
+                return False, f"绘图任务失败: {err_msg}"
 
             if result and result.get("images"):
                 # 获取第一张图像
