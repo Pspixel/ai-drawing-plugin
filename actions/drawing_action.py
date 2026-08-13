@@ -96,10 +96,12 @@ class AIDrawingAction(BaseAction):
             user_prompt = self.action_data.get("prompt", "")
             action_content_prompt = self.action_data.get("content_prompt", "")
             user_style = self.action_data.get("style", "")
-            width = self.action_data.get("width", default_width)
-            height = self.action_data.get("height", default_height)
-            enable_hr = self.action_data.get("enable_hr", default_enable_hr)
-            hr_second_pass_steps = self.action_data.get("hr_second_pass_steps", hr_second_pass_steps)
+            width = self.action_data.get("width") or default_width
+            height = self.action_data.get("height") or default_height
+            enable_hr_raw = self.action_data.get("enable_hr")
+            enable_hr = default_enable_hr if enable_hr_raw == "" or enable_hr_raw is None else enable_hr_raw
+            hr_second_pass_steps_raw = self.action_data.get("hr_second_pass_steps")
+            hr_second_pass_steps = hr_second_pass_steps if hr_second_pass_steps_raw == "" or hr_second_pass_steps_raw is None else hr_second_pass_steps_raw
 
             # 如果用户要求画自画像，使用机器人外观描述
             if "自画像" in user_prompt or "画你自己" in user_prompt or "画自己" in user_prompt:
