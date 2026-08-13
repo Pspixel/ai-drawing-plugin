@@ -139,20 +139,29 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 #### `/sampler [采样器名]` - 查看或切换采样器
 
 ```
-/sampler                    # 查看可用采样器列表
+/sampler                    # 从 SD API 实时拉取采样器列表
 /sampler DPM++ 2M Karras   # 切换到指定采样器
 ```
 
-查看可用的采样器列表或切换到指定采样器。
+从 SD WebUI API 实时获取可用采样器列表，或切换到指定采样器。切换后重启前一直生效。
 
 #### `/scheduler [调度器名]` - 查看或切换调度器
 
 ```
-/scheduler           # 查看可用调度器列表
-/scheduler Karras    # 切换到指定调度器
+/scheduler           # 从 SD API 实时拉取调度器列表
+/scheduler karras    # 切换到指定调度器（使用括号内的传参名）
 ```
 
-查看可用的调度器列表或切换到指定调度器。
+从 SD WebUI API 实时获取可用调度器列表，或切换到指定调度器。列表中会同时显示显示名和传参名。
+
+#### `/upscaler [放大器名]` - 查看或切换高分修复放大器
+
+```
+/upscaler                    # 从 SD API 实时拉取放大器列表
+/upscaler R-ESRGAN 4x+      # 切换到指定放大器
+```
+
+从 SD WebUI API 实时获取可用放大器列表，或切换高分修复使用的放大器。仅在启用高分修复（`enable_hr=true`）时生效。
 
 #### `/listmodules` - 查看可用附加模块
 
@@ -211,8 +220,9 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 | `generation.hr_scale` | float | `2.0` | 高分修复放大倍数 |
 | `generation.hr_upscaler` | string | `Latent` | 高分修复放大器 |
 | `generation.denoising_strength` | float | `0.7` | 去噪强度 |
-| `generation.available_samplers` | list | `["Euler a", ...]` | 可用的采样器列表 |
-| `generation.available_schedulers` | list | `["Automatic", ...]` | 可用的调度器列表 |
+| `generation.available_samplers` | list | `["Euler a", ...]` | 可用的采样器列表（API 不可用时的备用列表） |
+| `generation.available_schedulers` | list | `["Automatic", ...]` | 可用的调度器列表（API 不可用时的备用列表） |
+| `generation.available_upscalers` | list | `[]` | 可用放大器列表（API 不可用时的备用列表，留空则从 API 实时拉取） |
 | `generation.default_additional_modules` | list | `[]` | 默认外挂附加模块列表（VAE / Text Encoder），填写模块的 model_name，留空则不启用 |
 
 ### 机器人配置
@@ -425,11 +435,19 @@ private_ids = ["10001", "10002"]
 
 ### SwitchSchedulerCommand
 
-查看或切换调度器。
+查看或切换调度器，从 SD API 实时拉取列表（API 不可用时回退到配置文件列表）。
 
 **命令格式**:
-- `/scheduler` - 查看可用调度器列表
-- `/scheduler <调度器名>` - 切换到指定调度器
+- `/scheduler` - 从 API 拉取调度器列表
+- `/scheduler <调度器传参名>` - 切换到指定调度器
+
+### SwitchUpscalerCommand
+
+查看或切换高分修复放大器，从 SD API 实时拉取列表（API 不可用时回退到配置文件中的 `available_upscalers` 列表）。仅在启用高分修复时生效。
+
+**命令格式**:
+- `/upscaler` - 从 API 拉取放大器列表
+- `/upscaler <放大器名>` - 切换到指定放大器
 
 ### ListModulesCommand
 

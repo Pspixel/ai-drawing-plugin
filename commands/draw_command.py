@@ -5,6 +5,7 @@ from src.plugin_system import BaseCommand
 from ..sd_client import StableDiffusionClient
 from ..image_review import ImageReviewer
 from .module_commands import get_active_modules
+from .sampler_commands import get_active_sampler, get_active_scheduler, get_active_upscaler
 
 logger = logging.getLogger("ai_drawing.draw_command")
 
@@ -35,11 +36,11 @@ class DrawCommand(BaseCommand):
             height = self.get_config("generation.height", 512)
             steps = self.get_config("generation.steps", 20)
             cfg_scale = self.get_config("generation.cfg_scale", 7.0)
-            sampler_name = self.get_config("generation.sampler_name", "Euler a")
-            scheduler = self.get_config("generation.scheduler", None)
+            sampler_name = get_active_sampler() or self.get_config("generation.sampler_name", "Euler a")
+            scheduler = get_active_scheduler() or self.get_config("generation.scheduler", None)
             enable_hr = self.get_config("generation.enable_hr", False)
             hr_scale = self.get_config("generation.hr_scale", 2.0)
-            hr_upscaler = self.get_config("generation.hr_upscaler", "Latent")
+            hr_upscaler = get_active_upscaler() or self.get_config("generation.hr_upscaler", "Latent")
             hr_second_pass_steps = self.get_config("generation.hr_second_pass_steps", 0)
             denoising_strength = self.get_config("generation.denoising_strength", 0.7)
 

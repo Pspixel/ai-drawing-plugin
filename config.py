@@ -143,6 +143,12 @@ CONFIG_SCHEMA = {
             item_type="string",
             hint='填写模块文件名（model_name），例如：\ndefault_additional_modules = ["vae-ft-mse-840000-ema-pruned.safetensors", "clip_l.safetensors"]\n运行时可通过 /addmodule 和 /removemodule 命令动态增减',
         ),
+        "available_upscalers": ConfigField(
+            type=list,
+            default=[],
+            description="可用放大器列表（用于 /upscaler 命令切换时的备用列表，留空则从 SD API 实时拉取）",
+            item_type="string",
+        ),
     },
     "bot": {
         "appearance_description": ConfigField(

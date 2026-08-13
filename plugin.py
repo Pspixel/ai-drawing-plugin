@@ -13,6 +13,7 @@ from .commands import (
     SwitchModelCommand,
     SwitchSamplerCommand,
     SwitchSchedulerCommand,
+    SwitchUpscalerCommand,
     ListModulesCommand,
     AddModuleCommand,
     RemoveModuleCommand,
@@ -96,6 +97,7 @@ class AIDrawingPlugin(BasePlugin):
             (SwitchModelCommand.get_command_info(), SwitchModelCommand),
             (SwitchSamplerCommand.get_command_info(), SwitchSamplerCommand),
             (SwitchSchedulerCommand.get_command_info(), SwitchSchedulerCommand),
+            (SwitchUpscalerCommand.get_command_info(), SwitchUpscalerCommand),
             # 附加模块管理命令
             (ListModulesCommand.get_command_info(), ListModulesCommand),
             (AddModuleCommand.get_command_info(), AddModuleCommand),

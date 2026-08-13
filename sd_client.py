@@ -265,6 +265,25 @@ class StableDiffusionClient:
             print(f"获取模块列表失败: {e}")
             return None
 
+    async def get_upscalers(self) -> Optional[List[Dict[str, Any]]]:
+        """获取可用的高分修复放大器列表
+
+        Returns:
+            放大器列表，每项包含 name、model_name 等字段，失败返回 None
+        """
+        url = f"{self.base_url}/sdapi/v1/upscalers"
+
+        try:
+            async with aiohttp.ClientSession(timeout=self.timeout) as session:
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        return await response.json()
+                    else:
+                        return None
+        except Exception as e:
+            print(f"获取放大器列表失败: {e}")
+            return None
+
     async def get_samplers(self) -> Optional[List[Dict[str, Any]]]:
         """获取可用采样器列表
 

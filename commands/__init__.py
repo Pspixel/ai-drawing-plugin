@@ -2,7 +2,7 @@
 from .draw_command import DrawCommand
 from .help_command import DrawHelpCommand
 from .model_commands import CurrentModelCommand, SwitchModelCommand
-from .sampler_commands import SwitchSamplerCommand, SwitchSchedulerCommand
+from .sampler_commands import SwitchSamplerCommand, SwitchSchedulerCommand, SwitchUpscalerCommand
 from .module_commands import (
     ListModulesCommand,
     AddModuleCommand,
@@ -17,6 +17,7 @@ __all__ = [
     "SwitchModelCommand",
     "SwitchSamplerCommand",
     "SwitchSchedulerCommand",
+    "SwitchUpscalerCommand",
     "ListModulesCommand",
     "AddModuleCommand",
     "RemoveModuleCommand",

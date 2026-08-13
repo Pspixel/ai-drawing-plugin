@@ -6,6 +6,7 @@ from ..sd_client import StableDiffusionClient
 from ..utils import MessageGenerator
 from ..image_review import ImageReviewer
 from ..commands.module_commands import get_active_modules
+from ..commands.sampler_commands import get_active_sampler, get_active_scheduler, get_active_upscaler
 
 logger = logging.getLogger("ai_drawing.drawing_action")
 
@@ -78,11 +79,11 @@ class AIDrawingAction(BaseAction):
             default_height = self.get_config("generation.height", 512)
             default_steps = self.get_config("generation.steps", 20)
             default_cfg = self.get_config("generation.cfg_scale", 7.0)
-            default_sampler = self.get_config("generation.sampler_name", "Euler a")
-            default_scheduler = self.get_config("generation.scheduler", None)
+            default_sampler = get_active_sampler() or self.get_config("generation.sampler_name", "Euler a")
+            default_scheduler = get_active_scheduler() or self.get_config("generation.scheduler", None)
             default_enable_hr = self.get_config("generation.enable_hr", False)
             hr_scale = self.get_config("generation.hr_scale", 2.0)
-            hr_upscaler = self.get_config("generation.hr_upscaler", "Latent")
+            hr_upscaler = get_active_upscaler() or self.get_config("generation.hr_upscaler", "Latent")
             hr_second_pass_steps = self.get_config("generation.hr_second_pass_steps", 0)
             denoising_strength = self.get_config("generation.denoising_strength", 0.7)
             bot_appearance = self.get_config("bot.appearance_description", "")
