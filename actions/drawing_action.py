@@ -204,12 +204,10 @@ class AIDrawingAction(BaseAction):
                 )
                 return False, "绘图队列已满"
 
-            # 通知用户入队状态，然后异步等待结果（等待期间机器人可正常处理其他消息）
-            if queue_size == 0:
-                queue_notice = "好的，开始为你绘制图片~"
-            else:
+            # 如果有排队任务，通知用户
+            if queue_size > 0:
                 queue_notice = f"已收到绘图请求，前方还有 {queue_size} 个任务在排队，请耐心等待~"
-            await self.send_text(queue_notice)
+                await self.send_text(queue_notice)
 
             # 使用 LLM 生成开始绘图的风格化回复
             start_message = await MessageGenerator.generate_stylized_message(
