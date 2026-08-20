@@ -66,9 +66,9 @@ class RecallManager:
 
         # 查询最近发送的消息，获取平台 ID
         try:
-            # 查询最近 5 分钟内的消息
+            # 查询最近 6 分钟内的消息
             messages = message_api.get_recent_messages(
-                stream_id=stream_id,
+                chat_id=stream_id,
                 hours=0.1,  # 6 分钟
                 limit=10
             )
