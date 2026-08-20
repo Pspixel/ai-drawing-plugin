@@ -80,3 +80,4 @@ auto_recall_delay = 60       # 撤回延迟时间（秒），默认 60 秒
 
 # NapCat API 配置
 napcat_api_url = "http://localhost:3000"  # NapCat HTTP API 地址
+napcat_api_token = ""                     # NapCat HTTP API Token，无 Token 时留空

@@ -29,6 +29,8 @@ class DrawHelpCommand(BaseCommand):
 /scheduler [调度器名] - 查看或切换调度器
   示例: /scheduler Karras
 
+/ch - 撤回 bot 发送的图片（回复目标消息后使用；不回复则撤回本会话最近一张图）
+
 /drawhelp - 显示此帮助信息
 
 💡 提示:

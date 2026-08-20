@@ -266,5 +266,12 @@ CONFIG_SCHEMA = {
             description="NapCat HTTP API 地址",
             example="http://localhost:3000",
         ),
+        "napcat_api_token": ConfigField(
+            type=str,
+            default="",
+            description="NapCat HTTP API request token; leave empty to disable authentication",
+            example="",
+            input_type="password",
+        ),
     },
 }

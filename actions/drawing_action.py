@@ -260,14 +260,22 @@ class AIDrawingAction(BaseAction):
                 # 发送图像
                 await self.send_image(image_base64)
 
-                # 追踪发送的消息（用于撤回）
+                # 追踪发送的消息（用于撤回）。发图后稍等 echo，尽量记下整数平台 ID。
+                sent_at = time.time()
                 RecallManager.track_sent_message(
                     chat_id=self.chat_id,
                     context={
                         "stream_id": self.chat_stream.stream_id,
-                        "timestamp": time.time(),
-                        "message_type": "image"
-                    }
+                        "timestamp": sent_at,
+                        "message_type": "image",
+                    },
+                )
+                asyncio.create_task(
+                    RecallManager.capture_sent_image(
+                        chat_id=self.chat_id,
+                        stream_id=self.chat_stream.stream_id,
+                        timestamp=sent_at,
+                    )
                 )
 
                 # 如果启用了自动撤回
@@ -275,8 +283,13 @@ class AIDrawingAction(BaseAction):
                 if auto_recall_enabled:
                     auto_recall_delay = self.get_config("recall.auto_recall_delay", 60)
                     napcat_api_url = self.get_config("recall.napcat_api_url", "http://localhost:3000")
+                    napcat_api_token = self.get_config("recall.napcat_api_token", "")
                     # 创建异步任务执行延迟撤回
-                    asyncio.create_task(self._auto_recall_after_delay(auto_recall_delay, napcat_api_url))
+                    asyncio.create_task(
+                        self._auto_recall_after_delay(
+                            auto_recall_delay, napcat_api_url, napcat_api_token
+                        )
+                    )
 
                 # 使用 LLM 生成成功的风格化回复
                 success_message = await MessageGenerator.generate_stylized_message(
@@ -307,7 +320,9 @@ class AIDrawingAction(BaseAction):
             await self.send_text(error_message)
             return False, f"执行出错: {str(e)}"
 
-    async def _auto_recall_after_delay(self, delay: int, napcat_api_url: str) -> None:
+    async def _auto_recall_after_delay(
+        self, delay: int, napcat_api_url: str, napcat_api_token: str = ""
+    ) -> None:
         """延迟后自动撤回消息
 
         Args:
@@ -321,7 +336,8 @@ class AIDrawingAction(BaseAction):
             # 执行撤回
             success, msg = await RecallManager.recall_latest_image(
                 chat_id=self.chat_id,
-                napcat_api_url=napcat_api_url
+                napcat_api_url=napcat_api_url,
+                napcat_api_token=napcat_api_token,
             )
 
             if success:
