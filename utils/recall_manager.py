@@ -90,11 +90,15 @@ class RecallManager:
                 return False, "未找到 bot 发送的图片消息"
 
             # 尝试从 additional_config 获取平台消息 ID
-            platform_msg_id = bot_image_message.get("additional_config", {}).get("platform_message_id")
+            additional_config = bot_image_message.get("additional_config", {})
+            platform_msg_id = additional_config.get("platform_message_id")
+
+            # 详细日志：输出消息的完整结构
+            logger.info(f"Bot图片消息详情: message_id={bot_image_message.get('message_id')}, additional_config={additional_config}")
 
             if not platform_msg_id:
-                logger.warning(f"消息中未找到 platform_message_id: {bot_image_message.get('message_id')}")
-                return False, "无法获取平台消息 ID"
+                logger.warning(f"消息中未找到 platform_message_id: {bot_image_message.get('message_id')}, additional_config={additional_config}")
+                return False, f"无法获取平台消息 ID（additional_config: {additional_config}）"
 
             # 调用 NapCat API 执行撤回
             success = await cls._call_napcat_recall_api(napcat_api_url, platform_msg_id)
@@ -142,11 +146,16 @@ class RecallManager:
                 return False, "消息发送时间过长，无法撤回（仅支持 2 分钟内的消息）"
 
             # 获取平台消息 ID
-            platform_msg_id = message.get("additional_config", {}).get("platform_message_id")
+            additional_config = message.get("additional_config", {})
+            platform_msg_id = additional_config.get("platform_message_id")
+
+            # 详细日志：输出消息的完整结构
+            logger.info(f"消息详情: message_id={message_id}, additional_config={additional_config}")
+            logger.info(f"消息完整内容: {message}")
 
             if not platform_msg_id:
-                logger.warning(f"消息中未找到 platform_message_id: {message_id}")
-                return False, "无法获取平台消息 ID"
+                logger.warning(f"消息中未找到 platform_message_id: message_id={message_id}, additional_config={additional_config}")
+                return False, f"无法获取平台消息 ID（additional_config: {additional_config}）"
 
             # 调用 NapCat API 执行撤回
             success = await cls._call_napcat_recall_api(napcat_api_url, platform_msg_id)
