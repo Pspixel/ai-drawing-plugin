@@ -23,7 +23,7 @@ CONFIG_SCHEMA = {
         ),
         "config_version": ConfigField(
             type=str,
-            default="2.0.1",
+            default="2.1.0",
             description="配置文件版本"
         ),
         "debug_mode": ConfigField(
