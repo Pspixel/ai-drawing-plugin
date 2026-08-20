@@ -10,12 +10,19 @@ logger = logging.getLogger("ai_drawing.recall_action")
 class RecallAction(BaseAction):
     """智能撤回 Action - 当用户回复特定消息时，bot 自动撤回该消息"""
 
-    activation_type = ActionActivationType.REPLY
+    activation_type = ActionActivationType.ALWAYS
 
     def match(self) -> bool:
-        """匹配规则：用户回复 bot 发送的图片消息"""
+        """匹配规则：用户回复 bot 发送的图片消息并包含撤回关键词"""
         # 检查是否是回复消息
         if not self.reply_to_message_id:
+            return False
+
+        # 检查用户消息内容是否包含撤回关键词
+        user_text = self.get_text().strip().lower()
+        recall_keywords = ["撤回", "撤", "删除", "删了", "recall"]
+
+        if not any(keyword in user_text for keyword in recall_keywords):
             return False
 
         # 检查被回复的消息是否是 bot 发送的
@@ -32,11 +39,7 @@ class RecallAction(BaseAction):
         if replied_message.get("message_type") != "image":
             return False
 
-        # 检查用户消息内容是否包含撤回关键词
-        user_text = self.get_text().strip().lower()
-        recall_keywords = ["撤回", "撤", "删除", "删了", "recall"]
-
-        return any(keyword in user_text for keyword in recall_keywords)
+        return True
 
     async def execute(self) -> Tuple[bool, str]:
         """执行撤回操作"""
