@@ -1,8 +1,10 @@
 """AI 绘图 Action 组件"""
 import logging
+import time
+import asyncio
 from typing import Tuple
 from src.plugin_system import BaseAction, ActionActivationType
-from ..utils import MessageGenerator
+from ..utils import MessageGenerator, RecallManager
 from ..utils.drawing_queue import DrawingQueue
 from ..image_review import ImageReviewer
 from ..commands.module_commands import get_active_modules
@@ -258,6 +260,24 @@ class AIDrawingAction(BaseAction):
                 # 发送图像
                 await self.send_image(image_base64)
 
+                # 追踪发送的消息（用于撤回）
+                RecallManager.track_sent_message(
+                    chat_id=self.chat_id,
+                    context={
+                        "stream_id": self.chat_stream.stream_id,
+                        "timestamp": time.time(),
+                        "message_type": "image"
+                    }
+                )
+
+                # 如果启用了自动撤回
+                auto_recall_enabled = self.get_config("recall.auto_recall_enabled", False)
+                if auto_recall_enabled:
+                    auto_recall_delay = self.get_config("recall.auto_recall_delay", 60)
+                    napcat_api_url = self.get_config("recall.napcat_api_url", "http://localhost:3000")
+                    # 创建异步任务执行延迟撤回
+                    asyncio.create_task(self._auto_recall_after_delay(auto_recall_delay, napcat_api_url))
+
                 # 使用 LLM 生成成功的风格化回复
                 success_message = await MessageGenerator.generate_stylized_message(
                     "success",
@@ -286,6 +306,31 @@ class AIDrawingAction(BaseAction):
             )
             await self.send_text(error_message)
             return False, f"执行出错: {str(e)}"
+
+    async def _auto_recall_after_delay(self, delay: int, napcat_api_url: str) -> None:
+        """延迟后自动撤回消息
+
+        Args:
+            delay: 延迟时间（秒）
+            napcat_api_url: NapCat API 地址
+        """
+        try:
+            # 等待指定时间
+            await asyncio.sleep(delay)
+
+            # 执行撤回
+            success, msg = await RecallManager.recall_latest_image(
+                chat_id=self.chat_id,
+                napcat_api_url=napcat_api_url
+            )
+
+            if success:
+                logger.info(f"自动撤回成功: chat_id={self.chat_id}")
+            else:
+                logger.warning(f"自动撤回失败: chat_id={self.chat_id}, reason={msg}")
+
+        except Exception as e:
+            logger.error(f"自动撤回时发生异常: {e}", exc_info=True)
 
     async def _review_image(self, image_base64: str) -> Tuple[bool, str]:
         """审查图像是否违规

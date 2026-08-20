@@ -6,6 +6,7 @@ from src.plugin_system import (
     ComponentInfo,
 )
 from .actions import AIDrawingAction
+from .actions.recall_action import RecallAction
 from .commands import (
     DrawCommand,
     DrawHelpCommand,
@@ -19,6 +20,7 @@ from .commands import (
     RemoveModuleCommand,
     ClearModulesCommand,
 )
+from .commands.recall_command import RecallCommand
 from .config import CONFIG_SCHEMA, CONFIG_SECTION_DESCRIPTIONS
 
 
@@ -97,6 +99,7 @@ class AIDrawingPlugin(BasePlugin):
         return [
             # Action 组件
             (action_info, AIDrawingAction),
+            (RecallAction.get_action_info(), RecallAction),
             # Command 组件
             (DrawCommand.get_command_info(), DrawCommand),
             (DrawHelpCommand.get_command_info(), DrawHelpCommand),
@@ -110,4 +113,6 @@ class AIDrawingPlugin(BasePlugin):
             (AddModuleCommand.get_command_info(), AddModuleCommand),
             (RemoveModuleCommand.get_command_info(), RemoveModuleCommand),
             (ClearModulesCommand.get_command_info(), ClearModulesCommand),
+            # 撤回命令
+            (RecallCommand.get_command_info(), RecallCommand),
         ]

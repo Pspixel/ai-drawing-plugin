@@ -10,6 +10,7 @@ CONFIG_SECTION_DESCRIPTIONS = {
     "bot": "机器人相关配置",
     "artist_styles": "画师风格配置",
     "image_review": "图像审查配置",
+    "recall": "消息撤回配置",
 }
 
 # 配置 Schema
@@ -246,6 +247,24 @@ CONFIG_SCHEMA = {
             description='群聊黑白名单群ID列表（配合 group_mode 使用）。TOML 示例: group_ids = ["123456789", "987654321"]',
             item_type="string",
             hint="建议填写字符串类型（带引号），如 ['123456789']。白名单模式: 名单内群不审查直接输出; 黑名单模式: 名单内群需要审查",
+        ),
+    },
+    "recall": {
+        "auto_recall_enabled": ConfigField(
+            type=bool,
+            default=False,
+            description="是否启用自动撤回功能（绘图后自动撤回图片消息）"
+        ),
+        "auto_recall_delay": ConfigField(
+            type=int,
+            default=60,
+            description="自动撤回延迟时间（秒），默认 60 秒"
+        ),
+        "napcat_api_url": ConfigField(
+            type=str,
+            default="http://localhost:3000",
+            description="NapCat HTTP API 地址",
+            example="http://localhost:3000",
         ),
     },
 }
