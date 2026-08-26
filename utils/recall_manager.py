@@ -21,7 +21,7 @@ class RecallManager:
     不会出现在 additional_config.platform_message_id。
     """
 
-    _recent_messages: Dict[str, Dict[str, Any]] = {}
+    _recent_messages: Dict[str, List[Dict[str, Any]]] = {}
 
     @staticmethod
     def _value(obj: Any, name: str, default: Any = None) -> Any:
@@ -189,10 +189,17 @@ class RecallManager:
 
     @classmethod
     def track_sent_message(cls, chat_id: str, context: Dict[str, Any]) -> None:
-        previous = cls._recent_messages.get(chat_id) or {}
-        previous.update(context)
-        cls._recent_messages[chat_id] = previous
-        logger.info("追踪消息发送: chat_id=%s, context=%s", chat_id, previous)
+        messages = cls._recent_messages.get(chat_id) or []
+        timestamp = context.get("timestamp", time.time())
+
+        # 清理超过 5 分钟的旧记录
+        current_time = time.time()
+        messages = [msg for msg in messages if current_time - msg.get("timestamp", 0) < 300]
+
+        # 添加新记录
+        messages.append(context)
+        cls._recent_messages[chat_id] = messages
+        logger.info("追踪消息发送: chat_id=%s, timestamp=%s, 当前追踪消息数=%d", chat_id, timestamp, len(messages))
 
     @classmethod
     async def capture_sent_image(cls, chat_id: str, stream_id: str, timestamp: float) -> None:
@@ -203,16 +210,36 @@ class RecallManager:
             target = cls._pick_recall_target(messages, timestamp)
             platform_msg_id = cls._platform_message_id(target) if target else None
             raw_id = cls._value(target, "message_id") if target else None
-            cls.track_sent_message(
-                chat_id,
-                {
-                    "stream_id": stream_id,
-                    "timestamp": timestamp,
-                    "message_type": "image",
-                    "raw_message_id": raw_id,
-                    "platform_message_id": platform_msg_id,
-                },
-            )
+
+            # 更新已追踪的消息记录，添加 platform_message_id
+            tracked_messages = cls._recent_messages.get(chat_id) or []
+            updated = False
+            for msg in tracked_messages:
+                if abs(msg.get("timestamp", 0) - timestamp) < 1.0:  # 找到匹配的时间戳
+                    msg["raw_message_id"] = raw_id
+                    msg["platform_message_id"] = platform_msg_id
+                    updated = True
+                    logger.info(
+                        "更新已追踪消息的平台 ID: chat_id=%s, timestamp=%s, platform_message_id=%s",
+                        chat_id,
+                        timestamp,
+                        platform_msg_id,
+                    )
+                    break
+
+            if not updated:
+                # 如果没找到对应记录，添加新记录
+                cls.track_sent_message(
+                    chat_id,
+                    {
+                        "stream_id": stream_id,
+                        "timestamp": timestamp,
+                        "message_type": "image",
+                        "raw_message_id": raw_id,
+                        "platform_message_id": platform_msg_id,
+                    },
+                )
+
             logger.info(
                 "捕获已发图片: chat_id=%s, raw_message_id=%s, platform_message_id=%s",
                 chat_id,
@@ -279,13 +306,21 @@ class RecallManager:
         napcat_api_token: str = "",
         prefer_image: bool = True,
     ) -> tuple[bool, str]:
-        context = cls._recent_messages.get(chat_id) or {}
-        query_chat_id = context.get("stream_id") or chat_id
-        # 不限图片时忽略发图追踪，直接取最近一条自己的消息。
-        timestamp = context.get("timestamp") if prefer_image else None
+        messages = cls._recent_messages.get(chat_id) or []
         now = time.time()
+
+        # 从追踪记录中找到最近的消息
+        context = None
+        if messages:
+            # 按时间戳降序排序，取最新的
+            sorted_messages = sorted(messages, key=lambda m: m.get("timestamp", 0), reverse=True)
+            context = sorted_messages[0] if sorted_messages else None
+
+        query_chat_id = context.get("stream_id") if context else chat_id
+        # 不限图片时忽略发图追踪，直接取最近一条自己的消息。
+        timestamp = context.get("timestamp") if (context and prefer_image) else None
         stored_platform_id = (
-            cls._as_platform_id(context.get("platform_message_id")) if prefer_image else None
+            cls._as_platform_id(context.get("platform_message_id")) if (context and prefer_image) else None
         )
         if stored_platform_id:
             logger.info("使用追踪记录中的平台 ID 撤回: %s", stored_platform_id)
@@ -293,7 +328,10 @@ class RecallManager:
                 napcat_api_url, stored_platform_id, napcat_api_token
             )
             if success:
-                cls._recent_messages.pop(chat_id, None)
+                # 从列表中移除这条已撤回的消息
+                if context and context in messages:
+                    messages.remove(context)
+                    cls._recent_messages[chat_id] = messages
                 return True, "消息已成功撤回"
             logger.warning("追踪记录中的平台 ID 撤回失败，改为查询数据库")
 
@@ -336,7 +374,10 @@ class RecallManager:
                 napcat_api_url, platform_msg_id, napcat_api_token
             )
             if success:
-                cls._recent_messages.pop(chat_id, None)
+                # 从列表中移除这条已撤回的消息
+                messages = cls._recent_messages.get(chat_id) or []
+                messages = [msg for msg in messages if msg.get("timestamp") != timestamp]
+                cls._recent_messages[chat_id] = messages
                 logger.info("成功撤回消息: platform_msg_id=%s", platform_msg_id)
                 return True, "消息已成功撤回"
             return False, "调用撤回 API 失败"
