@@ -19,7 +19,13 @@ class RecallAction(BaseAction):
     keyword_case_sensitive = False
     parallel_action = True
 
-    action_parameters = {}
+    action_parameters = {
+        "target_message_id": {
+            "type": "string",
+            "description": "需要撤回的目标消息ID",
+            "required": False,
+        }
+    }
     action_require = [
         "【核心要求】当用户明确要求撤回、删除你刚才发送的消息时使用。范围包括你自己发出的全部消息，不限于图片",
         "【回复场景】当用户回复了你发送的某条消息时，被回复的消息才是需要撤回的目标消息。不要使用用户请求撤回的消息ID，而应使用你之前发送的消息ID",
@@ -33,11 +39,17 @@ class RecallAction(BaseAction):
         try:
             napcat_api_url = self.get_config("recall.napcat_api_url", "http://localhost:3000")
             napcat_api_token = self.get_config("recall.napcat_api_token", "")
-            reply_id = RecallManager.extract_reply_id(self)
 
-            if reply_id:
+            # 先尝试从规划器参数获取 target_message_id
+            target_message_id = self.action_parameters.get("target_message_id")
+
+            # 如果规划器没有提供，再尝试从回复消息获取
+            if not target_message_id:
+                target_message_id = RecallManager.extract_reply_id(self)
+
+            if target_message_id:
                 success, msg = await RecallManager.recall_by_message_id(
-                    message_id=reply_id,
+                    message_id=target_message_id,
                     napcat_api_url=napcat_api_url,
                     napcat_api_token=napcat_api_token,
                 )
@@ -50,13 +62,13 @@ class RecallAction(BaseAction):
                 )
 
             if success:
-                logger.info("用户触发撤回成功: reply_id=%s, chat_id=%s", reply_id, self.chat_id)
+                logger.info("用户触发撤回成功: target_message_id=%s, chat_id=%s", target_message_id, self.chat_id)
                 return True, "已撤回目标消息，不要再向用户发送撤回成功之类的提示"
 
             await self.send_text(f"撤回失败: {msg}")
             logger.warning(
-                "用户触发撤回失败: reply_id=%s, chat_id=%s, reason=%s",
-                reply_id,
+                "用户触发撤回失败: target_message_id=%s, chat_id=%s, reason=%s",
+                target_message_id,
                 self.chat_id,
                 msg,
             )
