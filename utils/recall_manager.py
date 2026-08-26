@@ -223,11 +223,19 @@ class RecallManager:
             logger.exception("捕获已发图片失败: chat_id=%s", chat_id)
 
     @classmethod
-    def _pick_recall_target(cls, messages: List[Any], timestamp: Optional[float]) -> Any:
+    def _pick_recall_target(
+        cls,
+        messages: List[Any],
+        timestamp: Optional[float],
+        prefer_image: bool = True,
+    ) -> Any:
         bot_messages = [msg for msg in messages if cls._is_bot_message(msg)]
-        image_messages = [msg for msg in bot_messages if cls._is_image_message(msg)]
-        # 发出去的图片通常没有 message_type，识别失败时回退到追踪时刻附近的 bot 消息。
-        candidates = image_messages or bot_messages
+        if prefer_image:
+            image_messages = [msg for msg in bot_messages if cls._is_image_message(msg)]
+            # 发出去的图片通常没有 message_type，识别失败时回退到追踪时刻附近的 bot 消息。
+            candidates = image_messages or bot_messages
+        else:
+            candidates = bot_messages
         if timestamp is None:
             return max(candidates, key=lambda msg: cls._value(msg, "time", 0) or 0, default=None)
 
@@ -269,12 +277,16 @@ class RecallManager:
         chat_id: str,
         napcat_api_url: str,
         napcat_api_token: str = "",
+        prefer_image: bool = True,
     ) -> tuple[bool, str]:
         context = cls._recent_messages.get(chat_id) or {}
         query_chat_id = context.get("stream_id") or chat_id
-        timestamp = context.get("timestamp")
+        # 不限图片时忽略发图追踪，直接取最近一条自己的消息。
+        timestamp = context.get("timestamp") if prefer_image else None
         now = time.time()
-        stored_platform_id = cls._as_platform_id(context.get("platform_message_id"))
+        stored_platform_id = (
+            cls._as_platform_id(context.get("platform_message_id")) if prefer_image else None
+        )
         if stored_platform_id:
             logger.info("使用追踪记录中的平台 ID 撤回: %s", stored_platform_id)
             success = await cls._call_napcat_recall_api(
@@ -300,16 +312,19 @@ class RecallManager:
                 logger.warning("未查询到 chat_id=%s 的最近消息", query_chat_id)
                 return False, "未查询到最近的消息"
 
-            bot_image_message = cls._pick_recall_target(messages, timestamp)
+            bot_image_message = cls._pick_recall_target(
+                messages, timestamp, prefer_image=prefer_image
+            )
             if not bot_image_message:
-                logger.warning("未找到 bot 发送的图片消息: chat_id=%s", query_chat_id)
-                return False, "未找到 bot 发送的图片消息"
+                target_desc = "图片消息" if prefer_image else "消息"
+                logger.warning("未找到 bot 发送的%s: chat_id=%s", target_desc, query_chat_id)
+                return False, f"未找到 bot 发送的{target_desc}"
 
             additional_config = cls._additional_config(bot_image_message)
             raw_message_id = cls._value(bot_image_message, "message_id")
             platform_msg_id = cls._platform_message_id(bot_image_message)
             logger.info(
-                "Bot图片消息详情: message_id=%s, additional_config=%s, platform_msg_id=%s",
+                "Bot消息详情: message_id=%s, additional_config=%s, platform_msg_id=%s",
                 raw_message_id,
                 additional_config,
                 platform_msg_id,

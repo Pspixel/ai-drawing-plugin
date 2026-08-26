@@ -10,10 +10,10 @@ logger = logging.getLogger("ai_drawing.recall_action")
 
 
 class RecallAction(BaseAction):
-    """当用户要求撤回 bot 发出的图片时执行撤回。"""
+    """当用户要求撤回 bot 自己发出的消息时执行撤回。"""
 
     action_name = "recall_image"
-    action_description = "撤回机器人刚刚发送的图片消息"
+    action_description = "撤回机器人自己发送的消息，包括文本、图片等所有类型，不限于图片"
     activation_type = ActionActivationType.KEYWORD
     activation_keywords = ["撤回", "删了", "删掉", "recall"]
     keyword_case_sensitive = False
@@ -21,9 +21,10 @@ class RecallAction(BaseAction):
 
     action_parameters = {}
     action_require = [
-        "当用户明确要求撤回、删除刚才由你发送的图片时使用",
-        "当用户回复了一张你发送的图片并要求撤回时使用",
+        "当用户明确要求撤回、删除你刚才发送的消息时使用，范围包括你自己发出的全部消息，不限于图片",
+        "当用户回复了你发送的某条消息并要求撤回时使用",
         "用户没有要求撤回时不要使用",
+        "执行此动作后不要再向用户发送「撤回成功」「已撤回」之类的确认提示",
     ]
     associated_types = ["text"]
 
@@ -44,12 +45,12 @@ class RecallAction(BaseAction):
                     chat_id=self.chat_id,
                     napcat_api_url=napcat_api_url,
                     napcat_api_token=napcat_api_token,
+                    prefer_image=False,
                 )
 
             if success:
-                await self.send_text("已撤回该消息")
                 logger.info("用户触发撤回成功: reply_id=%s, chat_id=%s", reply_id, self.chat_id)
-                return True, "撤回成功"
+                return True, "已撤回目标消息，不要再向用户发送撤回成功之类的提示"
 
             await self.send_text(f"撤回失败: {msg}")
             logger.warning(
