@@ -17,7 +17,7 @@ class RecallAction(BaseAction):
     activation_type = ActionActivationType.KEYWORD
     activation_keywords = ["撤回", "删了", "删掉", "recall"]
     keyword_case_sensitive = False
-    parallel_action = False
+    parallel_action = True
 
     action_parameters = {}
     action_require = [
