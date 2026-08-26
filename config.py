@@ -23,7 +23,7 @@ CONFIG_SCHEMA = {
         ),
         "config_version": ConfigField(
             type=str,
-            default="2.1.0",
+            default="2.2.0",
             description="配置文件版本"
         ),
         "debug_mode": ConfigField(
@@ -259,6 +259,11 @@ CONFIG_SCHEMA = {
             type=int,
             default=60,
             description="自动撤回延迟时间（秒），默认 60 秒"
+        ),
+        "max_recall_time_limit": ConfigField(
+            type=int,
+            default=120,
+            description="消息撤回的最大时间限制（秒），默认 120 秒（2 分钟）。在 QQ 管理员模式下可设置更长时间"
         ),
         "napcat_api_url": ConfigField(
             type=str,

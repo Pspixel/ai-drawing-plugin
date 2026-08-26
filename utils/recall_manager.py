@@ -335,14 +335,19 @@ class RecallManager:
                 return True, "消息已成功撤回"
             logger.warning("追踪记录中的平台 ID 撤回失败，改为查询数据库")
 
-        if timestamp and now - timestamp > 120:
+        # 获取配置中的撤回时限（默认 120 秒）
+        max_recall_time_limit = getattr(
+            getattr(global_config, "recall", None), "max_recall_time_limit", 120
+        )
+
+        if timestamp and now - timestamp > max_recall_time_limit:
             logger.warning("消息发送时间过长(%.1f秒)，无法撤回", now - timestamp)
-            return False, "消息发送时间过长，无法撤回（仅支持 2 分钟内的消息）"
+            return False, f"消息发送时间过长，无法撤回（仅支持 {max_recall_time_limit} 秒内的消息）"
 
         start_time = (timestamp or now) - 15
         end_time = now
         if not timestamp:
-            start_time = now - 120
+            start_time = now - max_recall_time_limit
 
         try:
             messages = cls._query_recent_messages(query_chat_id, start_time, end_time)
@@ -393,12 +398,17 @@ class RecallManager:
         napcat_api_token: str = "",
     ) -> tuple[bool, str]:
         try:
+            # 获取配置中的撤回时限（默认 120 秒）
+            max_recall_time_limit = getattr(
+                getattr(global_config, "recall", None), "max_recall_time_limit", 120
+            )
+
             message = cls.get_message_by_id(message_id)
             if message:
                 created_at = cls._value(message, "created_at") or cls._value(message, "time", 0)
-                if created_at and time.time() - created_at > 120:
+                if created_at and time.time() - created_at > max_recall_time_limit:
                     logger.warning("消息发送时间过长，无法撤回: message_id=%s", message_id)
-                    return False, "消息发送时间过长，无法撤回（仅支持 2 分钟内的消息）"
+                    return False, f"消息发送时间过长，无法撤回（仅支持 {max_recall_time_limit} 秒内的消息）"
                 if not cls._is_bot_message(message):
                     return False, "只能撤回 bot 发送的消息"
                 platform_msg_id = cls._platform_message_id(message, fallback=message_id)
