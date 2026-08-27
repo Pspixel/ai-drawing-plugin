@@ -19,18 +19,12 @@ class RecallAction(BaseAction):
     keyword_case_sensitive = False
     parallel_action = True
 
-    action_parameters = {
-        "target_message_id": {
-            "type": "string",
-            "description": "需要撤回的目标消息ID",
-            "required": False,
-        }
-    }
+    action_parameters = {}
     action_require = [
         "【核心要求】当用户明确要求撤回、删除你刚才发送的消息时使用。范围包括你自己发出的全部消息，不限于图片",
-        "【回复场景】当用户回复了你发送的某条消息时，被回复的消息才是需要撤回的目标消息。不要使用用户请求撤回的消息ID，而应使用你之前发送的消息ID",
-        "【重点澄清】用户在消息m452中说「撤回」时，m452是用户发送的请求消息，不是撤回目标。你需要找到并撤回你自己发送的消息，而不是撤回m452",
-        "【场景判断】如果用户直接说「撤回上一条」/「删掉那张图」，应撤回你最近发送的消息；如果用户回复某条消息说「撤回」，应撤回被回复的那条消息（如果是你发的）",
+        "【重要】不要在JSON中填写target_message_id参数！系统会自动从用户的回复消息中提取要撤回的目标",
+        "【使用方式】只需输出 {\"action\":\"recall_image\"} 即可，不需要任何其他参数",
+        "【自动识别】如果用户回复了某条消息说「撤回」，系统会自动撤回被回复的那条消息；如果用户没有回复特定消息，系统会撤回你最近发送的消息",
         "【禁止项】用户没有要求撤回时不要使用；执行此动作后不要再向用户发送「撤回成功」「已撤回」之类的确认提示",
     ]
     associated_types = ["text"]
@@ -40,20 +34,18 @@ class RecallAction(BaseAction):
             napcat_api_url = self.get_config("recall.napcat_api_url", "http://localhost:3000")
             napcat_api_token = self.get_config("recall.napcat_api_token", "")
 
-            # 先尝试从规划器参数获取 target_message_id
-            target_message_id = self.action_parameters.get("target_message_id")
-
-            # 如果规划器没有提供，再尝试从回复消息获取
-            if not target_message_id:
-                target_message_id = RecallManager.extract_reply_id(self)
+            # 从回复消息中提取要撤回的目标消息ID（用户回复了哪条消息）
+            target_message_id = RecallManager.extract_reply_id(self)
 
             if target_message_id:
+                # 如果用户回复了某条消息，撤回被回复的那条消息
                 success, msg = await RecallManager.recall_by_message_id(
                     message_id=target_message_id,
                     napcat_api_url=napcat_api_url,
                     napcat_api_token=napcat_api_token,
                 )
             else:
+                # 如果用户没有回复特定消息，撤回最近发送的消息
                 success, msg = await RecallManager.recall_latest_image(
                     chat_id=self.chat_id,
                     napcat_api_url=napcat_api_url,
