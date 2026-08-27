@@ -14,7 +14,7 @@ class RecallAction(BaseAction):
 
     action_name = "recall_image"
     action_description = "撤回机器人自己发送的消息，包括文本、图片等所有类型，不限于图片"
-    activation_type = ActionActivationType.KEYWORD
+    activation_type = ActionActivationType.ALWAYS  # 改为 ALWAYS，确保始终可用
     activation_keywords = ["撤回", "删了", "删掉", "recall"]
     keyword_case_sensitive = False
     parallel_action = True
