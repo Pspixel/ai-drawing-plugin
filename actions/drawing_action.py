@@ -23,7 +23,7 @@ class AIDrawingAction(BaseAction):
 
     # === 功能描述 ===
     action_parameters = {
-        "prompt": "图像的内容描述词，必须使用英文标签（tags），用逗号分隔。例如: loli, kawaii, white hair, long hair, cat ears, red eyes, short two side up, cat_tail, smile, standing",
+        "prompt": "图像内容描述词，全部用英文，按顺序用逗号加空格拼接三层结构：第一层 hard_tags 离散标签（人数→角色名→作品名→画师(@artist name)→外观→服装→道具→场景，小写英文+空格分词，每类外观保留 2-4 个，不伪造不确定的标签）；第二层 soft_phrases 短审美短语（情绪、氛围、动效）；第三层 nltags_block 以 Place/Use/Keep/Frame/Light/Blur 开头的完整英文短句（构图、光源、景深、绑定、动作后果）。严禁添加 masterpiece、best quality、highly detailed 等质量前缀（系统已内置，避免冲突）。默认不加权，需要时最多 1-3 个加权点。示例：1girl, white hair, long hair, blue eyes, cat ears, red plaid skirt, breaking into a smile, gentle afternoon light, Place the girl slightly right of center. Use warm window light from the left. Keep her face sharp against a soft blur.",
         "style": "画师风格名称（可选，当用户指定风格时填写中文风格名，如 '动漫'、'写实'、'油画' 等）。可用风格列表见 action_require",
         "content_prompt": "内容提示词（可选，用于补充内容描述，也必须使用英文）",
         "width": "图像宽度（可选，默认使用配置文件）",
@@ -36,7 +36,15 @@ class AIDrawingAction(BaseAction):
         "当用户明确要求生成图片、绘画、画图时使用",
         "当用户描述了想要的图像内容时使用",
         "当用户要求画你自己、画自画像、画机器人自己时，必须从配置文件 bot.appearance_description 读取机器人外观描述，并将其作为 prompt 参数传入",
-        "重要：prompt 参数必须使用英文标签，不要使用中文。将用户的中文描述转换为英文标签",
+        "【prompt 组装规则】prompt 必须全部使用英文，按顺序用逗号加空格拼接三层：<hard_tags>, <soft_phrases>, <nltags_block>（尖括号仅表示层次占位，输出时不要写尖括号）",
+        "【第一层 hard_tags】离散英文标签放最前，顺序：人数(1girl/1boy/2girls 等)→角色名→作品名→画师(@artist name)→外观→服装→道具→场景；小写英文、空格分词（red hair 而不是 red_hair）、逗号分隔；命名角色须带 2-4 个身份锚点；只写高置信度标签，同类外观只保留 2-4 个，删除弱相关/重复/解释性标签；不确定的复合概念不伪造，降级为自然语言描述",
+        "【第二层 soft_phrases】短视觉/审美短语放中间，逗号并列：动作情感、环境氛围、光影动效、画风倾向，必须服务于当前画面情境",
+        "【第三层 nltags_block】完整英文短句放最后（至少 1 句），句首用 Place/Use/Keep/Frame/Light/Blur 之一，覆盖位置绑定、手与道具精确接触、视线引导、光源方向、景深虚化、色彩氛围、动作可见后果、脸部可读性；禁止写离散标签列表、世界观解释、心理描写、文学比喻、重复 hard_tags 锚点；每句必须能改变画面",
+        "【禁止质量词】严禁自行添加 masterpiece、best quality、highly detailed、score_9 等任何质量前缀，系统已内置默认质量提示词，重复会冲突",
+        "【语义分离】同一语义只放一处，禁止跨层重复",
+        "【冲突检查】每组只能二选一：solo/多人、close-up/full body、from above/from below、from front/from behind、closed eyes/looking at viewer、裸体/服装；多角色外观逐人绑定不串人；光源与背景同空间；单人正面默认保留 looking at viewer",
+        "【完整性】用户描述的画面元素完整保留不弱化；描述模糊时构建情境因果链只取最有张力瞬间；每个关键动作至少一个可见后果；环境必须影响主体；情绪落到表情/视线/手势/重心；至少覆盖 3 个画面维度（互动、情感、视线、环境联动、动势、空间层次、材质质感、因果可见性）",
+        "【权重规则】默认不加权；仅用户要求或元素不稳定时才加权，同一 prompt 最多 1-3 个加权点",
         "标签示例：人物特征(loli, girl, boy)、发色(white hair, black hair, blonde hair)、发型(long hair, short hair, twin tails, ponytail)、眼睛(red eyes, blue eyes, green eyes)、服装(dress, school uniform, maid outfit)、动作(standing, sitting, running, smiling)、配饰(cat ears, glasses, ribbon, hat)",
         "画师风格功能：当配置启用了画师风格功能时，用户可以指定使用某个风格（如'用动漫风格画'、'用写实风格'等）。此时需要在 style 参数中填写对应的风格名称",
     ]
@@ -45,25 +53,31 @@ class AIDrawingAction(BaseAction):
         {
             "user_input": "画一个可爱的猫耳萝莉，白色长发，红色眼睛",
             "action_data": {
-                "prompt": "loli, kawaii, cat ears, white hair, long hair, red eyes, smile, cute",
+                "prompt": "1girl, loli, white hair, long hair, red eyes, cat ears, cat tail, red plaid skirt, stockings, teddy bear, excited giggling, gentle afternoon light, golden dust motes, Place the girl slightly right of center in a knee-up shot. Use warm window light from the left to rim her hair and skirt. Keep her face sharp while the bookshelf behind blurs softly. Let her cat tail curl around her ankle.",
             }
         },
         {
             "user_input": "帮我画一张风景画，有山有水",
             "action_data": {
-                "prompt": "landscape, mountain, river, nature, scenery, beautiful",
+                "prompt": "mountain range, mirror lake, pine forest, morning mist, clear blue sky, lone wooden boat, drifting clouds reflected on the water, soft golden sunrise, birds crossing the sky, Frame the lake leading into the mountains as a wide establishing shot. Use warm light from the upper right to light the distant peaks. Keep the boat and its reflections sharp against a hazy far shore.",
             }
         },
         {
-            "user_input": "画一个穿女仆装的女孩",
+            "user_input": "画一个穿女仆装的女孩，端着一杯茶",
             "action_data": {
-                "prompt": "girl, maid outfit, maid dress, apron, smile, standing",
+                "prompt": "1girl, maid outfit, maid dress, white apron, blonde hair, long hair, green eyes, teacup, cozy cafe interior, gentle smile, soft afternoon light, steam rising from the cup, Place the maid slightly left of center, holding the teacup with both hands. Use warm cafe light from the upper right to silhouette her apron. Keep her face and the cup sharp while the shelves behind blur. Let a wisp of steam curl past the camera lens.",
             }
         },
         {
             "user_input": "画你自己",
             "action_data": {
-                "prompt": "使用 action_require 中提供的机器人外观描述",
+                "prompt": "使用 action_require 中的机器人外观描述，并按三层结构组装英文 prompt",
+            }
+        },
+        {
+            "user_input": "画两个女孩，一个是白发猫耳，另一个是黑发马尾，在樱花树下聊天",
+            "action_data": {
+                "prompt": "2girls, white hair, long hair, cat ears, black hair, ponytail, spring, cherry blossom tree, casual clothes, petals drifting in the wind, having a cheerful chat, Place the cat-ear girl on the left, leaning against the tree while speaking. Place the ponytail girl on the right, resting her hand on the trunk and laughing. Use soft daylight filtering through the blossoms from above. Keep both faces sharp against a shallow blur of pink petals.",
             }
         },
     ]
