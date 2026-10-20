@@ -11,6 +11,7 @@ CONFIG_SECTION_DESCRIPTIONS = {
     "artist_styles": "画师风格配置",
     "image_review": "图像审查配置",
     "recall": "消息撤回配置",
+    "character_query": "角色标签查询配置（/chartag 命令）",
 }
 
 # 配置 Schema
@@ -277,6 +278,23 @@ CONFIG_SCHEMA = {
             description="NapCat HTTP API request token; leave empty to disable authentication",
             example="",
             input_type="password",
+        ),
+    },
+    "character_query": {
+        "enabled": ConfigField(
+            type=bool,
+            default=True,
+            description="是否启用角色标签查询命令（/chartag）",
+        ),
+        "max_results": ConfigField(
+            type=int,
+            default=20,
+            description="单次查询最多返回的角色数量。注意：MaiBot 在发送合并转发消息前会对其中每张图片调用一次识图（VLM），storage_message=False 也无法避免，因此数量越大，识图调用与耗时越多，默认 20",
+        ),
+        "show_searching_tip": ConfigField(
+            type=bool,
+            default=True,
+            description="查询前是否先发送“正在查询...”提示",
         ),
     },
 }

@@ -48,6 +48,11 @@
       },
       {
         "type": "command",
+        "name": "chartag",
+        "description": "角色标签查询命令，使用 /chartag <角色名>[,作品名] 查询角色的触发标签、核心标签和缩略图"
+      },
+      {
+        "type": "command",
         "name": "drawhelp",
         "description": "显示 AI 绘图插件的帮助信息"
       },

@@ -81,3 +81,14 @@ auto_recall_delay = 60       # 撤回延迟时间（秒），默认 60 秒
 # NapCat API 配置
 napcat_api_url = "http://localhost:3000"  # NapCat HTTP API 地址
 napcat_api_token = ""                     # NapCat HTTP API Token，无 Token 时留空
+
+# ========================================
+# 角色标签查询配置（/chartag 命令）
+# ========================================
+[character_query]
+enabled = true              # 是否启用角色标签查询命令
+# 单次查询最多返回的角色数量。
+# 注意：MaiBot 发送合并转发前会对其中每张图片调用一次识图（VLM），无法避免，
+# 数量越大识图调用与耗时越多，默认 20。
+max_results = 20
+show_searching_tip = true   # 查询前是否先发送“正在查询...”提示

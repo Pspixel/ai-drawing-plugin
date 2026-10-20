@@ -111,6 +111,19 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 /draw a beautiful sunset over the ocean
 ```
 
+#### `/chartag <角色名>[,作品名]` - 查询角色绘图标签
+
+```
+/chartag 甘雨           # 按角色名模糊查询
+/chartag 甘雨,原神      # 同时按角色名和作品名模糊查询（中英文逗号均可）
+```
+
+别名：`/查角色`、`/角色标签`。从插件内置的 `data/character_tags.db` 中查询，以合并转发消息返回每个角色的缩略图、触发标签和核心标签，按作品热度（count）降序排列。
+
+- 超出 `character_query.max_results`（默认 20）时只显示前 N 个，可用“角色名,作品名”缩小范围
+- 缩略图缺失的角色只返回文本；合并转发发送失败时自动降级为逐条发送
+- 注意：MaiBot 发送合并转发前会对其中每张图片调用一次识图（VLM），`storage_message=False` 也无法避免，因此不建议把 `max_results` 调得过大
+
 #### `/drawhelp` - 查看帮助
 
 ```
@@ -404,6 +417,14 @@ private_ids = ["10001", "10002"]
 直接绘图命令，用户可以通过命令立即生成图片。
 
 **命令格式**: `/draw <描述>`
+
+### CharacterTagCommand
+
+查询角色的绘图标签。按角色名（可选作品名）模糊匹配 `data/character_tags.db`，以合并转发消息返回缩略图、触发标签和核心标签。可通过 `[character_query]` 配置节开关或调整返回数量。
+
+**命令格式**:
+- `/chartag <角色名>` - 仅按角色名查询
+- `/chartag <角色名>,<作品名>` - 按角色名和作品名查询（别名：`/查角色`、`/角色标签`）
 
 ### DrawHelpCommand
 

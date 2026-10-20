@@ -18,6 +18,11 @@ class DrawHelpCommand(BaseCommand):
 /draw <描述> - 生成图片
   示例: /draw a beautiful landscape
 
+/chartag <角色名>[,作品名] - 查询角色绘图标签（以合并转发返回缩略图、触发标签和核心标签）
+  示例: /chartag 甘雨
+  示例: /chartag 甘雨,原神
+  别名: /查角色、/角色标签
+
 /drawmodel - 查看当前使用的模型
 
 /switchmodel [模型名] - 切换绘图模型（不带参数列出可选模型）

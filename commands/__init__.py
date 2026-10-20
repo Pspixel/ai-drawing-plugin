@@ -1,5 +1,6 @@
 """Command 组件模块初始化文件"""
 from .draw_command import DrawCommand
+from .character_tag_command import CharacterTagCommand
 from .help_command import DrawHelpCommand
 from .model_commands import CurrentModelCommand, SwitchModelCommand
 from .sampler_commands import SwitchSamplerCommand, SwitchSchedulerCommand, SwitchUpscalerCommand
@@ -12,6 +13,7 @@ from .module_commands import (
 
 __all__ = [
     "DrawCommand",
+    "CharacterTagCommand",
     "DrawHelpCommand",
     "CurrentModelCommand",
     "SwitchModelCommand",

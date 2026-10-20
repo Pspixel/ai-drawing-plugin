@@ -9,6 +9,7 @@ from .actions import AIDrawingAction
 from .actions.recall_action import RecallAction
 from .commands import (
     DrawCommand,
+    CharacterTagCommand,
     DrawHelpCommand,
     CurrentModelCommand,
     SwitchModelCommand,
@@ -113,6 +114,7 @@ class AIDrawingPlugin(BasePlugin):
             (RecallAction.get_action_info(), RecallAction),
             # Command 组件
             (DrawCommand.get_command_info(), DrawCommand),
+            (CharacterTagCommand.get_command_info(), CharacterTagCommand),
             (DrawHelpCommand.get_command_info(), DrawHelpCommand),
             (CurrentModelCommand.get_command_info(), CurrentModelCommand),
             (SwitchModelCommand.get_command_info(), SwitchModelCommand),
