@@ -46,3 +46,16 @@ Thumbs.db
 *.tmp
 *.bak
 *.cache
+
+# 运行时数据（数据库、生成的图片等）
+data/
+
+# 角色缩略图资源与压缩包
+thumbs/
+thumbs.rar
+
+# 开发用本地文档（不随插件发布）
+other_doc/
+
+# Claude Code 本地配置
+.claude/
