@@ -224,10 +224,12 @@ class AIDrawingAction(BaseAction):
                 await self.send_text(queue_notice)
 
             # 使用 LLM 生成开始绘图的风格化回复
+            # 注意：这里传的是用户的原始请求（中文），而不是英文绘图提示词。
+            # 传英文 prompt 会让回复模型误以为自己要输出提示词。
             start_message = await MessageGenerator.generate_stylized_message(
                 "start",
                 chat_stream=self.chat_stream,
-                user_prompt=user_prompt
+                user_request=self._get_user_request(),
             )
             await self.send_text(start_message)
 
@@ -307,7 +309,7 @@ class AIDrawingAction(BaseAction):
                 success_message = await MessageGenerator.generate_stylized_message(
                     "success",
                     chat_stream=self.chat_stream,
-                    user_prompt=user_prompt
+                    user_request=self._get_user_request(),
                 )
                 await self.send_text(success_message)
 
@@ -317,7 +319,6 @@ class AIDrawingAction(BaseAction):
                 fail_message = await MessageGenerator.generate_stylized_message(
                     "fail",
                     chat_stream=self.chat_stream,
-                    user_prompt=user_prompt
                 )
                 await self.send_text(fail_message)
                 return False, "图片生成失败"
@@ -331,6 +332,28 @@ class AIDrawingAction(BaseAction):
             )
             await self.send_text(error_message)
             return False, f"执行出错: {str(e)}"
+
+    def _get_user_request(self) -> str:
+        """获取用户原始请求文本（中文）
+
+        用于生成风格化回复。绝不能把英文绘图提示词传过去，
+        否则回复模型会误以为自己要输出提示词而不是一句话。
+
+        Returns:
+            用户的原始请求文本，取不到时返回空字符串
+        """
+        try:
+            message = self.action_message
+            if not message:
+                return ""
+            # action_message 是 dict（见框架文档），但也兼容对象形式
+            if isinstance(message, dict):
+                text = message.get("processed_plain_text") or ""
+            else:
+                text = getattr(message, "processed_plain_text", "") or ""
+            return text.strip()
+        except Exception:
+            return ""
 
     async def _auto_recall_after_delay(
         self, delay: int, napcat_api_url: str, napcat_api_token: str = ""
