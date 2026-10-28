@@ -101,8 +101,8 @@ class MessageGenerator:
 {topic}
 
 【输出示例】（照着这种口吻写，不要抄内容）
-完成啦！快看看喜不喜欢~ 🎉
-马上就好，等我一下~ ✨"""
+收到！马上动手画，等我一下哦~ ✨
+嗯嗯，正在努力创作中，稍等片刻~ 🖌️"""
 
         elif message_type == "success":
             topic = f"用户让你画的是「{user_request}」，图片已经画好并发送出去了。" if user_request else "图片已经画好并发送出去了。"
@@ -125,7 +125,10 @@ class MessageGenerator:
 呜...这次没画出来呢，再试一次好不好~ 🥺"""
 
         elif message_type == "error":
-            error = kwargs.get("error", "未知错误")
+            # 截断过长的错误信息，避免堆栈类长文本干扰输出或浪费 token
+            error = str(kwargs.get("error", "未知错误"))
+            if len(error) > 100:
+                error = error[:100] + "…"
             return f"""{common_rules}
 
 【当前情境】
