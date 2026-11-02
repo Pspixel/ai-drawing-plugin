@@ -5,7 +5,6 @@ import json
 import logging
 import sqlite3
 import sys
-import tomllib
 from enum import Enum
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -290,16 +289,11 @@ def test_drawing_action_keeps_original_execution_and_trigger(framework):
     assert framework.sent
 
 
-def test_config_examples_and_manifest_match_schema(framework):
+def test_config_schema_and_manifest_metadata(framework):
     schema = framework.plugin.CONFIG_SCHEMA
     assert schema["plugin"]["config_version"].default == "2.3.0"
     assert schema["tag_retrieval"]["api_key"].input_type == "password"
     assert schema["tag_retrieval"]["api_key"].default == ""
-    expected = {name: field.default for name, field in schema["tag_retrieval"].items()}
-    for name in ("config_example.toml", "config.toml.example"):
-        content = tomllib.loads((ROOT / name).read_text(encoding="utf-8"))
-        assert content["tag_retrieval"] == expected
-        assert content["plugin"]["config_version"] == "2.3.0"
     manifest = json.loads((ROOT / "_manifest.json").read_text(encoding="utf-8"))
     assert manifest["version"] == "1.3.0"
     assert any(component["type"] == "tool" and component["name"] == "character_tag_lookup"

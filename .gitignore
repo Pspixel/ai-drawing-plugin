@@ -34,6 +34,8 @@ env/
 
 # 配置文件（用户自定义）
 config.toml
+config_example.toml
+config.toml.example
 
 # 日志文件
 *.log
@@ -55,7 +57,7 @@ thumbs/
 thumbs.rar
 
 # 开发用本地文档（不随插件发布）
-other_doc/
+docs/reference/
 
 # Claude Code 本地配置
 .claude/

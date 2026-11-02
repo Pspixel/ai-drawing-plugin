@@ -4,12 +4,13 @@
 
 ## 📚 文档导航
 
-- **[README.md](README.md)** - 主文档（本文档），包含功能介绍、安装配置、使用方法等
-- **[CONFIG_FIX_GUIDE.md](CONFIG_FIX_GUIDE.md)** - 配置文件修复指南，解决 TOML 中文键名格式问题
-- **[config_example.toml](config_example.toml)** - 完整配置示例文件，展示正确的配置格式
-- **[NSFW_FILTER_GUIDE.md](NSFW_FILTER_GUIDE.md)** - 图像审查功能配置指南
-- **[STRUCTURE.md](STRUCTURE.md)** - 插件项目结构说明
-- **[TAG_RETRIEVAL_GUIDE.md](TAG_RETRIEVAL_GUIDE.md)** - 角色标签智能检索配置、降级策略与部署验收
+项目说明文档集中在 `docs/`，README 提供安装、使用与开发入口：
+
+- [配置文件修复指南](docs/CONFIG_FIX_GUIDE.md) - 修复 TOML 中文键名格式
+- [图像审查功能指南](docs/NSFW_FILTER_GUIDE.md) - 图像审查与名单配置
+- [项目结构说明](docs/STRUCTURE.md) - 模块职责与扩展方式
+- [角色标签智能检索](docs/TAG_RETRIEVAL_GUIDE.md) - Tool 配置、索引缓存、降级策略与部署验收
+- [配置定义](config.py) - 全部配置字段与默认值，运行配置由 MaiBot 自动生成
 
 ## ✨ 功能特性
 
@@ -43,20 +44,25 @@
 
 ### 2. 安装插件
 
-将插件目录放置到 MaiBot 的 `plugins/` 目录下：
+将完整插件目录放置到 MaiBot 的 `plugins/` 目录下，保留各模块目录：
 
+```text
+MaiBot/
+└── plugins/
+    └── ai_drawing_plugin/    # 本仓库完整内容，结构见下方“开发说明”
 ```
-plugins/
-└── ai_drawing_plugin/
-    ├── _manifest.json
-    ├── plugin.py
-    ├── sd_client.py
-    └── README.md
+
+在 MaiBot 使用的 Python 环境中安装插件依赖：
+
+```powershell
+python -m pip install aiohttp numpy
 ```
 
 ### 3. 配置插件
 
 首次启动 MaiBot 后，插件会自动生成配置文件 `config.toml`。
+
+全部配置字段与默认值见 [config.py](config.py)，专项配置示例见 `docs/` 中的对应指南。
 
 编辑配置文件以启用插件并调整参数：
 
@@ -106,7 +112,20 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 机器人: [使用动漫风格的 tag 组合生成图片]
 ```
 
-命名角色的智能绘图可先调用 `character_tag_lookup`，通过 SQLite 名称匹配、向量召回与重排获得标签事实。配置与规划前桥接说明见 [角色标签智能检索](TAG_RETRIEVAL_GUIDE.md)。API 密钥留空时只查询 SQLite；现有 `/chartag` 查询行为保持不变。
+命名角色的智能绘图可先调用 `character_tag_lookup`，通过 SQLite 名称匹配、向量召回与重排获得标签事实。配置与规划前桥接说明见 [角色标签智能检索](docs/TAG_RETRIEVAL_GUIDE.md)。API 密钥留空时只查询 SQLite；现有 `/chartag` 查询行为保持不变。
+
+#### 角色标签索引与缓存
+
+角色检索采用“首次全库向量化、本地缓存、后续只向量化查询词”的方式：
+
+- **首次构建**：配置有效的检索 API 密钥后，插件启动时会检查索引缓存。没有有效缓存时，从 `data/character_tags.db` 读取角色名、英文标识、作品、触发词和核心标签，分批发送到 Embedding API。以 36,495 个角色、默认每批 32 条计算，需要约 1,141 个串行请求，首次构建可能耗时较长。
+- **本地保存**：全部批次成功后，将向量和校验元数据保存到 `data/character_vectors.npz`。SQLite 保存原始角色数据，向量单独保存在该文件中；插件不附带预先生成的向量索引。
+- **后续查询**：只将本次角色名及可选作品名发送到 Embedding API，再用查询向量在本地缓存中计算相似度。随后将向量召回和名称匹配得到的少量候选发送到 Rerank API，默认最多约 60 条，最终返回最多 3 条；每次查询不会重新向量化整个角色库。
+- **缓存复用与重建**：重启时按数据库内容指纹、Embedding 模型 ID 和接口地址校验缓存，有效则直接加载。缓存缺失、损坏或校验不一致时才重新构建全库索引。
+
+首次构建期间发起角色检索，会等待索引完成后再继续绘图规划。当前没有逐批进度日志，因此可能出现日志长时间没有更新的情况；构建完成后会输出“角色向量索引就绪，记录数：…”日志。`tag_retrieval.timeout` 只限制单次接口请求，不是全库构建的总时限。
+
+当前索引在全部批次成功后才保存，不支持断点续传；如果首次构建失败或中途重启，后续构建可能从头开始。构建失败时当前查询会降级为 SQLite 名称查询。
 
 ### 命令绘图 (Command)
 
@@ -123,7 +142,7 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 /chartag 甘雨,原神      # 同时按角色名和作品名模糊查询（中英文逗号均可）
 ```
 
-别名：`/查角色`、`/角色标签`。从插件内置的 `data/character_tags.db` 中查询，以合并转发消息返回每个角色的缩略图、触发标签和核心标签，按作品热度（count）降序排列。
+别名：`/查角色`、`/角色标签`。从本地角色库 `data/character_tags.db` 中查询，以合并转发消息返回每个角色的缩略图、触发标签和核心标签，按记录热度（count）降序排列。角色数据库和 `thumbs/` 缩略图需在部署时准备，均不随 Git 提交。
 
 - 超出 `character_query.max_results`（默认 20）时只显示前 N 个，可用“角色名,作品名”缩小范围
 - 缩略图缺失的角色只返回文本；合并转发发送失败时自动降级为逐条发送
@@ -214,6 +233,10 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 
 清空当前会话所有已激活的附加模块。
 
+#### `/ch` - 撤回机器人消息
+
+回复机器人发送的目标消息后使用 `/ch` 可撤回该消息；不回复时尝试撤回本会话最近发送的图片。撤回功能使用 NapCat HTTP API，相关地址和令牌在 `[recall]` 中配置。
+
 ## ⚙️ 配置说明
 
 ### API 配置
@@ -226,7 +249,8 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `generation.default_prompt` | string | `masterpiece, best quality...` | 默认正面提示词 |
+| `generation.quality_prompt` | string | `masterpiece, best quality, highly detailed` | 默认质量提示词 |
+| `generation.content_prompt` | string | `""` | 默认内容提示词 |
 | `generation.negative_prompt` | string | `lowres, bad anatomy...` | 默认负面提示词 |
 | `generation.width` | int | `512` | 图像宽度（像素） |
 | `generation.height` | int | `512` | 图像高度（像素） |
@@ -237,6 +261,7 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 | `generation.enable_hr` | bool | `false` | 是否启用高分修复 |
 | `generation.hr_scale` | float | `2.0` | 高分修复放大倍数 |
 | `generation.hr_upscaler` | string | `Latent` | 高分修复放大器 |
+| `generation.hr_second_pass_steps` | int | `0` | 高分修复二次采样步数，0 表示与首次相同 |
 | `generation.denoising_strength` | float | `0.7` | 去噪强度 |
 | `generation.available_samplers` | list | `["Euler a", ...]` | 可用的采样器列表（API 不可用时的备用列表） |
 | `generation.available_schedulers` | list | `["Automatic", ...]` | 可用的调度器列表（API 不可用时的备用列表） |
@@ -248,6 +273,21 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
 | `bot.appearance_description` | string | `a cute anime girl...` | 机器人外观描述（用于自画像） |
+
+### 角色标签检索配置
+
+`[tag_retrieval]` 控制角色 Tool 与规划前查询，`[character_query]` 单独控制 `/chartag` 命令。向量与重排接口默认使用 SiliconFlow；完整字段、首次索引行为和故障降级见 [角色标签智能检索指南](docs/TAG_RETRIEVAL_GUIDE.md)。
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `tag_retrieval.enabled` | `true` | 启用角色标签 Tool 检索 |
+| `tag_retrieval.prefetch_before_plan` | `true` | 绘图规划前识别角色并注入查询事实 |
+| `tag_retrieval.api_key` | `""` | 留空时只使用本地 SQLite 查询 |
+| `tag_retrieval.embedding_model` | `Qwen/Qwen3-Embedding-4B` | 角色及查询文本的向量模型 |
+| `tag_retrieval.rerank_model` | `Qwen/Qwen3-Reranker-4B` | 候选重排模型 |
+| `tag_retrieval.batch_size` | `32` | 首次构建索引的向量请求批次大小 |
+| `tag_retrieval.candidate_count` | `30` | 向量召回候选数量，另合并名称匹配候选 |
+| `tag_retrieval.timeout` | `60` | 单次检索接口请求超时秒数 |
 
 ### 画师风格配置
 
@@ -290,7 +330,7 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 - 如果键名是纯英文或数字，可以不加引号
 - **自动生成的配置文件中中文键名可能缺少引号，需要手动添加**
 - 初始配置文件中包含多个示例风格（画师bakup、画师柚子社团等），你可以参考它们添加更多风格
-- 完整配置示例请参考 `config_example.toml` 文件
+- 全部配置字段与默认值请参考 [config.py](config.py)
 
 #### 默认包含的示例风格
 
@@ -411,9 +451,21 @@ private_ids = ["10001", "10002"]
 **参数**:
 - `prompt`: 图像描述词（必需）
 - `style`: 画师风格名称（可选，当启用风格功能且用户指定风格时使用）
+- `content_prompt`: 补充内容提示词（可选，英文）
 - `width`: 图像宽度（可选）
 - `height`: 图像高度（可选）
 - `enable_hr`: 是否启用高分修复（可选）
+- `hr_second_pass_steps`: 高分修复二次采样步数（可选）
+
+### RecallAction
+
+智能撤回动作，位于 `actions/recall_action.py`。用户明确要求撤回机器人消息时执行，优先撤回被回复的目标；未指定目标时尝试撤回本会话最近发送的机器人消息。
+
+## 🔎 Tool 与事件处理器
+
+`tools/character_tag_tool.py` 中的 `CharacterTagLookupTool` 提供 `character_tag_lookup`，接收角色名与可选作品名，最多返回三个候选的角色名、作品、`trigger` 和 `core_tags`。检索实现集中在 `retrieval/`，包括数据源适配、异步接口、向量索引与混合检索服务。
+
+`events/character_tag_context.py` 中的 `CharacterTagContextHandler` 在绘图规划前调用角色 Tool，将结果保存为当前会话可见的事实上下文，供规划器组装 Action 提示词。需要在 MaiBot 本体启用 `[tool].enable_tool` 并配置支持工具调用的 `tool_use` 模型；插件通过 `plugin.py` 注册 Tool 与事件处理器。
 
 ## 💻 Command 组件说明
 
@@ -499,6 +551,12 @@ private_ids = ["10001", "10002"]
 
 **命令格式**: `/clearmodules`
 
+### RecallCommand
+
+通过 NapCat HTTP API 撤回被回复的机器人消息，未回复目标时尝试撤回本会话最近发送的图片。
+
+**命令格式**: `/ch`
+
 ## 🔧 高级用法
 
 ### 风格化回复
@@ -581,13 +639,39 @@ python -m pytest tests -v
 
 ### 文件结构
 
-```
+```text
 ai_drawing_plugin/
-├── _manifest.json      # 插件元数据
-├── plugin.py           # 插件主文件（Action 和 Command）
-├── sd_client.py        # Stable Diffusion API 客户端
-└── README.md           # 说明文档
+├── README.md                  # 安装、配置与使用入口
+├── docs/                      # 项目说明文档
+│   ├── CONFIG_FIX_GUIDE.md     # 配置文件修复指南
+│   ├── NSFW_FILTER_GUIDE.md    # 图像审查指南
+│   ├── reference/             # 本地第三方开发参考资料（Git 忽略）
+│   ├── STRUCTURE.md           # 模块职责与扩展方式
+│   └── TAG_RETRIEVAL_GUIDE.md  # 角色标签检索指南
+├── plugin.py                  # 插件入口及全部组件注册
+├── config.py                  # 配置字段、默认值与配置节描述
+├── sd_client.py               # 异步 Stable Diffusion API 客户端
+├── image_review.py            # 图像审查与名单判断
+├── actions/                   # 智能绘图、智能撤回动作
+├── commands/                  # 绘图、角色查询、模型与模块管理等命令
+├── tools/                     # 角色标签查询 Tool
+├── events/                    # 绘图规划前的角色事实注入
+├── retrieval/                 # 数据源、向量接口、索引与混合检索
+├── utils/                     # SQLite 查询、绘图队列、消息与撤回管理
+├── tests/                     # 数据库、检索与 Tool 集成测试
+├── _manifest.json             # 插件版本、组件声明等元数据
+├── LICENSE                    # AGPL-3.0 许可证
+├── data/                      # 本地角色库与向量缓存（Git 忽略）
+└── thumbs/                    # 本地角色缩略图（可选，Git 忽略）
 ```
+
+`data/`、`thumbs/` 和运行配置 `config.toml` 属于部署时准备或生成的本地资源。本地配置示例 `config_example.toml`、`config.toml.example` 也已被 Git 忽略，不随仓库分发。开发用第三方参考资料集中在 `docs/reference/`，不随插件发布。各源码文件的职责见 [项目结构说明](docs/STRUCTURE.md)。
+
+### 开发与验证
+
+新增 Action 或 Command 时在相应包中导出，再在 `plugin.py` 注册；新增 Tool 或事件处理器时同样在 `plugin.py` 注册组件信息，并同步维护 `_manifest.json` 的组件声明。优先修改模块化代码。
+
+测试使用临时 SQLite 数据库、模拟检索接口与 MaiBot 接口替身，不依赖真实角色库和外部密钥。涉及真实绘图、工具调用上下文或消息发送的变更，还需在 MaiBot 中进行部署验证。
 
 ### 扩展功能
 
