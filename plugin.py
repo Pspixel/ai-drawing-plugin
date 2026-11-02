@@ -33,7 +33,7 @@ class AIDrawingPlugin(BasePlugin):
     plugin_name = "ai_drawing_plugin"
     enable_plugin = True
     dependencies = []
-    python_dependencies = ["aiohttp"]
+    python_dependencies = ["aiohttp", "numpy"]
     config_file_name = "config.toml"
 
     # 配置节描述

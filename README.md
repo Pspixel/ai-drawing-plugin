@@ -567,6 +567,13 @@ cfg_scale = 7.5  # 提高相关性使图像更符合提示词
 
 ## 📝 开发说明
 
+运行依赖包含 `aiohttp` 与 `numpy`（用于角色向量索引与余弦计算）。安装依赖和测试工具：
+
+```powershell
+python -m pip install aiohttp numpy pytest
+python -m pytest tests -v
+```
+
 ### 文件结构
 
 ```
