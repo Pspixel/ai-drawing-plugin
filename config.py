@@ -12,6 +12,7 @@ CONFIG_SECTION_DESCRIPTIONS = {
     "image_review": "图像审查配置",
     "recall": "消息撤回配置",
     "character_query": "角色标签查询配置（/chartag 命令）",
+    "tag_retrieval": "角色标签语义检索与重排配置",
 }
 
 # 配置 Schema
@@ -24,7 +25,7 @@ CONFIG_SCHEMA = {
         ),
         "config_version": ConfigField(
             type=str,
-            default="2.2.0",
+            default="2.3.0",
             description="配置文件版本"
         ),
         "debug_mode": ConfigField(
@@ -296,5 +297,35 @@ CONFIG_SCHEMA = {
             default=True,
             description="查询前是否先发送“正在查询...”提示",
         ),
+    },
+    "tag_retrieval": {
+        "enabled": ConfigField(type=bool, default=True, description="是否启用角色标签 Tool 检索"),
+        "prefetch_before_plan": ConfigField(
+            type=bool, default=True, description="绘图规划前使用工具模型识别角色并注入查询事实，会增加一次工具模型调用",
+        ),
+        "api_key": ConfigField(
+            type=str, default="", description="SiliconFlow API 密钥；留空时只使用本地 SQLite 名称查询",
+            input_type="password",
+        ),
+        "embedding_url": ConfigField(
+            type=str, default="https://api.siliconflow.cn/v1/embeddings",
+            description="兼容 OpenAI Embeddings 的接口地址",
+        ),
+        "embedding_model": ConfigField(
+            type=str, default="Qwen/Qwen3-Embedding-4B", description="向量模型 ID",
+        ),
+        "rerank_url": ConfigField(
+            type=str, default="https://api.siliconflow.cn/v1/rerank",
+            description="SiliconFlow Rerank 接口地址",
+        ),
+        "rerank_model": ConfigField(
+            type=str, default="Qwen/Qwen3-Reranker-4B", description="重排模型 ID",
+        ),
+        "timeout": ConfigField(type=int, default=60, description="检索接口超时秒数"),
+        "batch_size": ConfigField(type=int, default=32, description="索引构建时单次向量请求记录数"),
+        "candidate_count": ConfigField(type=int, default=30, description="语义召回候选数（名称候选会另外合并）"),
+        "min_similarity": ConfigField(type=float, default=0.45, description="语义候选最低余弦相似度"),
+        "min_rerank_score": ConfigField(type=float, default=0.3, description="重排结果最低相关度分数"),
+        "rerank_enabled": ConfigField(type=bool, default=True, description="是否调用重排模型"),
     },
 }

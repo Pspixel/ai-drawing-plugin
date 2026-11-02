@@ -10,13 +10,28 @@ from .source import DEFAULT_DB_PATH, DEFAULT_INDEX_PATH, load_characters, search
 
 
 logger = logging.getLogger("ai_drawing.tag_retrieval")
+_service = None
+
+
+def configure_service(service: "CharacterRetrievalService") -> None:
+    """绑定当前插件实例的检索服务，并取消旧实例的后台任务。"""
+    global _service
+    if _service is not None and _service._build_task is not None:
+        _service._build_task.cancel()
+    _service = service
+
+
+def get_service() -> "CharacterRetrievalService | None":
+    """取得插件注册时配置的检索服务。"""
+    return _service
 
 
 class CharacterRetrievalService:
     def __init__(self, client: SiliconFlowClient, db_path: Path = DEFAULT_DB_PATH,
                  index_path: Path = DEFAULT_INDEX_PATH, enabled: bool = True,
                  candidate_count: int = 30, min_similarity: float = 0.45,
-                 rerank_enabled: bool = True, min_rerank_score: float = 0.3):
+                 rerank_enabled: bool = True, min_rerank_score: float = 0.3,
+                 prefetch_before_plan: bool = True):
         self.client = client
         self.db_path = Path(db_path)
         self.index_path = Path(index_path)
@@ -25,6 +40,7 @@ class CharacterRetrievalService:
         self.min_similarity = max(-1.0, min(1.0, float(min_similarity)))
         self.rerank_enabled = rerank_enabled
         self.min_rerank_score = float(min_rerank_score)
+        self.prefetch_before_plan = bool(prefetch_before_plan)
         self.index = None
         self._build_task = None
         self._retry_after = 0.0

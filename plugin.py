@@ -23,6 +23,11 @@ from .commands import (
 )
 from .commands.recall_command import RecallCommand
 from .config import CONFIG_SCHEMA, CONFIG_SECTION_DESCRIPTIONS
+from .retrieval.client import SiliconFlowClient
+from .retrieval.service import CharacterRetrievalService, configure_service
+from .tools.character_tag_tool import CharacterTagLookupTool
+from .retrieval.rules import CHARACTER_TAG_RULE
+from .events.character_tag_context import CharacterTagContextHandler
 
 
 @register_plugin
@@ -71,6 +76,7 @@ class AIDrawingPlugin(BasePlugin):
             )
 
         custom_require.extend([
+            CHARACTER_TAG_RULE,
             "【prompt 组装规则】prompt 必须全部使用英文，按顺序用逗号加空格拼接三层：<hard_tags>, <soft_phrases>, <nltags_block>（尖括号仅表示层次占位，输出时不要写尖括号）",
             "【第一层 hard_tags】离散英文标签放最前，顺序：人数(1girl/1boy/2girls 等)→角色名→作品名→画师(@artist name)→外观→服装→道具→场景；小写英文、空格分词（red hair 而不是 red_hair）、逗号分隔；命名角色须带 2-4 个身份锚点；只写高置信度标签，同类外观只保留 2-4 个，删除弱相关/重复/解释性标签；不确定的复合概念不伪造，降级为自然语言描述",
             "【第二层 soft_phrases】短视觉/审美短语放中间，逗号并列：动作情感、环境氛围、光影动效、画风倾向，必须服务于当前画面情境",
@@ -100,13 +106,38 @@ class AIDrawingPlugin(BasePlugin):
 
         # 追加行为约束
         custom_require.extend([
-            "【禁止行为】每次对话中此绘图插件只能被调用一次。调用结束后无论成功还是失败，你都必须停止并等待用户的下一条指令，绝对不允许在同一轮对话中再次调用此插件。",
+            "【绘图调用限制】每次用户请求仅允许执行一次 ai_drawing 绘图 Action；角色标签查询 Tool 不计为绘图调用。绘图结束后无论成功还是失败，都必须停止并等待用户的下一条指令，绝对不允许在同一轮对话中再次绘图。",
             "【禁止行为】当你已经发送了绘图失败的消息之后，严禁再次自行调用此绘图插件重试。只有当用户在看到你的失败消息后，主动发出新的绘图指令时，才可以再次调用。",
             "重要：在生成涉及人物的图像时，如果用户没有明确描述服装，必须在 prompt 中主动添加日常服饰相关标签（如 t-shirt、dress、jacket、school uniform、casual clothes 等），禁止遗漏服装描述，以避免模型生成裸体图像。",
         ])
 
         # 修改 action_info 的 action_require
         action_info.action_require = custom_require
+
+        # 插件注册时启动非阻塞索引校验；查询会等待同一构建任务。
+        retrieval_enabled = self.get_config("tag_retrieval.enabled", True)
+        retrieval_client = SiliconFlowClient(
+            api_key=self.get_config("tag_retrieval.api_key", ""),
+            embedding_url=self.get_config(
+                "tag_retrieval.embedding_url", "https://api.siliconflow.cn/v1/embeddings"
+            ),
+            embedding_model=self.get_config("tag_retrieval.embedding_model", "Qwen/Qwen3-Embedding-4B"),
+            rerank_url=self.get_config("tag_retrieval.rerank_url", "https://api.siliconflow.cn/v1/rerank"),
+            rerank_model=self.get_config("tag_retrieval.rerank_model", "Qwen/Qwen3-Reranker-4B"),
+            timeout=self.get_config("tag_retrieval.timeout", 60),
+            batch_size=self.get_config("tag_retrieval.batch_size", 32),
+        )
+        retrieval_service = CharacterRetrievalService(
+            retrieval_client,
+            enabled=retrieval_enabled,
+            candidate_count=self.get_config("tag_retrieval.candidate_count", 30),
+            min_similarity=self.get_config("tag_retrieval.min_similarity", 0.45),
+            min_rerank_score=self.get_config("tag_retrieval.min_rerank_score", 0.3),
+            rerank_enabled=self.get_config("tag_retrieval.rerank_enabled", True),
+            prefetch_before_plan=self.get_config("tag_retrieval.prefetch_before_plan", True),
+        )
+        configure_service(retrieval_service)
+        retrieval_service.start()
 
         return [
             # Action 组件
@@ -128,4 +159,7 @@ class AIDrawingPlugin(BasePlugin):
             (ClearModulesCommand.get_command_info(), ClearModulesCommand),
             # 撤回命令
             (RecallCommand.get_command_info(), RecallCommand),
+            # 导出 Tool 信息，由 MaiBot 注册表自动发现并提供给工具模型。
+            (CharacterTagLookupTool.get_tool_info(), CharacterTagLookupTool),
+            (CharacterTagContextHandler.get_handler_info(), CharacterTagContextHandler),
         ]

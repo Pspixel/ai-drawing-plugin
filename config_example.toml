@@ -3,7 +3,7 @@
 
 [plugin]
 enabled = true
-config_version = "2.0.1"
+config_version = "2.3.0"
 debug_mode = false
 
 [api]
@@ -92,3 +92,19 @@ enabled = true              # 是否启用角色标签查询命令
 # 数量越大识图调用与耗时越多，默认 20。
 max_results = 20
 show_searching_tip = true   # 查询前是否先发送“正在查询...”提示
+
+# 角色标签智能检索（供 character_tag_lookup Tool 使用，不改变 /chartag）
+[tag_retrieval]
+enabled = true
+prefetch_before_plan = true # 绘图规划前识别角色，会增加一次 MaiBot 工具模型调用
+api_key = "" # 仅在本地运行配置填写；留空时不请求向量与重排服务
+embedding_url = "https://api.siliconflow.cn/v1/embeddings"
+embedding_model = "Qwen/Qwen3-Embedding-4B"
+rerank_url = "https://api.siliconflow.cn/v1/rerank"
+rerank_model = "Qwen/Qwen3-Reranker-4B"
+timeout = 60
+batch_size = 32
+candidate_count = 30
+min_similarity = 0.45
+min_rerank_score = 0.3
+rerank_enabled = true

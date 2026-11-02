@@ -1,8 +1,8 @@
 {
   "manifest_version": 1,
   "name": "AI 绘图插件",
-  "version": "1.2.0",
-  "description": "基于 Stable Diffusion WebUI API 的 AI 绘图插件，支持智能绘图和命令绘图，提供 Action 和 Command 组件，支持模型切换、采样器调整、多画师风格配置、图像审查和黑白名单等高级功能",
+  "version": "1.3.0",
+  "description": "基于 Stable Diffusion WebUI API 的 AI 绘图插件，提供绘图 Action、管理命令和角色标签检索 Tool，支持向量召回、候选重排及规划前角色事实注入",
   "author": {
     "name": "Pspixel",
     "url": "https://github.com/Pspixel"
@@ -36,6 +36,16 @@
     "is_built_in": false,
     "plugin_type": "general",
     "components": [
+      {
+        "type": "tool",
+        "name": "character_tag_lookup",
+        "description": "检索角色名称、作品、触发标签与核心外观标签，最多返回三个候选"
+      },
+      {
+        "type": "event_handler",
+        "name": "character_tag_context",
+        "description": "绘图规划前调用角色标签工具并保存当前会话的角色事实上下文"
+      },
       {
         "type": "action",
         "name": "ai_drawing",

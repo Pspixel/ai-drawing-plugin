@@ -9,6 +9,7 @@ from ..utils.drawing_queue import DrawingQueue
 from ..image_review import ImageReviewer
 from ..commands.module_commands import get_active_modules
 from ..commands.sampler_commands import get_active_sampler, get_active_scheduler, get_active_upscaler
+from ..retrieval.rules import CHARACTER_TAG_RULE
 
 logger = logging.getLogger("ai_drawing.drawing_action")
 
@@ -33,6 +34,7 @@ class AIDrawingAction(BaseAction):
     }
 
     action_require = [
+        CHARACTER_TAG_RULE,
         "当用户明确要求生成图片、绘画、画图时使用",
         "当用户描述了想要的图像内容时使用",
         "当用户要求画你自己、画自画像、画机器人自己时，必须从配置文件 bot.appearance_description 读取机器人外观描述，并将其作为 prompt 参数传入",

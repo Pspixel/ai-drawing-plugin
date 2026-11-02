@@ -9,10 +9,12 @@
 - **[config_example.toml](config_example.toml)** - 完整配置示例文件，展示正确的配置格式
 - **[NSFW_FILTER_GUIDE.md](NSFW_FILTER_GUIDE.md)** - 图像审查功能配置指南
 - **[STRUCTURE.md](STRUCTURE.md)** - 插件项目结构说明
+- **[TAG_RETRIEVAL_GUIDE.md](TAG_RETRIEVAL_GUIDE.md)** - 角色标签智能检索配置、降级策略与部署验收
 
 ## ✨ 功能特性
 
 - 🤖 **智能绘图 (Action)**: 机器人可以根据对话上下文智能判断何时生成图片
+- 🔎 **角色标签工具 (Tool)**: 角色向量召回、混合候选重排，绘图规划前获取角色触发词与外观事实
 - 💻 **命令绘图 (Command)**: 通过命令直接生成图片
 - 🔄 **模型管理**: 查看和切换 Stable Diffusion 模型
 - 🧩 **附加模块管理**: 动态加载外挂 VAE / Text Encoder（SD-Forge 专用）
@@ -24,8 +26,9 @@
 
 ## 📦 依赖要求
 
-- Python 3.8+
+- Python 3.10+（同时满足所用 MaiBot 版本要求）
 - aiohttp
+- numpy
 - Stable Diffusion WebUI (需要启动 API 模式)
 
 ## 🚀 快速开始
@@ -102,6 +105,8 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 机器人: 正在为你生成图片，请稍等...
 机器人: [使用动漫风格的 tag 组合生成图片]
 ```
+
+命名角色的智能绘图可先调用 `character_tag_lookup`，通过 SQLite 名称匹配、向量召回与重排获得标签事实。配置与规划前桥接说明见 [角色标签智能检索](TAG_RETRIEVAL_GUIDE.md)。API 密钥留空时只查询 SQLite；现有 `/chartag` 查询行为保持不变。
 
 ### 命令绘图 (Command)
 
