@@ -260,3 +260,115 @@ def test_missing_database_does_not_create_file(tmp_path):
     with pytest.raises(FileNotFoundError):
         asyncio.run(make_service(tmp_path, missing).search("甘雨"))
     assert not missing.exists()
+
+
+# 以下用例验证混合候选与重排。
+@pytest.mark.parametrize("results", [
+    None, [{"index": -1, "relevance_score": 0.5}],
+    [{"index": 4, "relevance_score": 0.5}],
+    [{"index": 0, "relevance_score": float("nan")}],
+    [{"index": 0, "relevance_score": "0.5"}],
+    [{"index": 0, "relevance_score": 0.5}, {"index": 0, "relevance_score": 0.4}],
+    [{"index": True, "relevance_score": 0.5}], [{}],
+])
+def test_invalid_rerank_responses(character_db, monkeypatch, results):
+    records, _ = source.load_characters(character_db)
+    client = Client("占位")
+
+    async def post(url, payload):
+        return {"results": results}
+
+    monkeypatch.setattr(client, "_post", post)
+    with pytest.raises(Error):
+        asyncio.run(client.rerank("甘雨", records))
+
+
+def test_rerank_maps_positions_and_sorts_scores(character_db, monkeypatch):
+    records, _ = source.load_characters(character_db)
+    client = Client("占位", rerank_url="http://测试/rerank", rerank_model="测试模型")
+
+    async def post(url, payload):
+        assert url == "http://测试/rerank"
+        assert payload["model"] == "测试模型"
+        assert payload["documents"] == [record.text for record in records]
+        assert payload["top_n"] == len(records)
+        return {"results": [{"index": 2, "relevance_score": 0.1},
+                            {"index": 0, "relevance_score": 0.9}]}
+
+    monkeypatch.setattr(client, "_post", post)
+    assert asyncio.run(client.rerank("甘雨", records)) == [(0, 0.9), (2, 0.1)]
+
+
+def test_hybrid_candidates_deduplicate_and_preserve_identity(tmp_path, character_db, monkeypatch):
+    async def run():
+        service = make_service(tmp_path, character_db)
+        await service.start()
+        # 名称可匹配记录即便低于语义阈值，仍必须交给重排模型。
+        service.index.vectors[0] = [0, 1]
+        seen = []
+
+        async def rerank(query, records):
+            seen.extend(records)
+            assert "甘雨" in query
+            target = next(i for i, record in enumerate(records) if record.record_id == "ganyu")
+            return [(target, 0.99)]
+
+        monkeypatch.setattr(service.client, "rerank", rerank)
+        result = await service.search("甘雨")
+        assert result == [seen[-1].payload]
+        assert result[0]["trigger"] == "ganyu (genshin impact)"
+        assert len({record.record_id for record in seen}) == len(seen)
+        assert {record.record_id for record in seen} == {"ganyu", "ganyu_fan"}
+
+    asyncio.run(run())
+
+
+def test_rerank_failures_use_vector_scores(tmp_path, character_db, monkeypatch):
+    async def run():
+        service = make_service(tmp_path, character_db, min_similarity=0.95)
+        await service.start()
+        service.index.vectors[0] = [0.6, 0.8]
+        service.index.vectors[1] = [0.8, 0.6]
+
+        async def fail(query, records):
+            raise asyncio.TimeoutError()
+
+        monkeypatch.setattr(service.client, "rerank", fail)
+        result = await service.search("甘雨")
+        assert [row["copyright_cn"] for row in result] == ["同人", "原神"]
+        # 重排失败不影响作品过滤，且两个名称候选都保留真实向量分数。
+        assert (await service.search("甘雨", "原神"))[0]["copyright_cn"] == "原神"
+
+    asyncio.run(run())
+
+
+def test_rerank_no_match_threshold_and_embedding_fallback(tmp_path, character_db, monkeypatch):
+    async def run():
+        service = make_service(tmp_path, character_db)
+
+        async def low_scores(query, records):
+            return [(i, 0.01) for i in range(len(records))]
+
+        monkeypatch.setattr(service.client, "rerank", low_scores)
+        assert await service.search("不存在") == []
+        service.client.fail = True
+        assert (await service.search("甘雨", "原神"))[0]["name_cn"] == "甘雨"
+        assert await service.search("不存在") == []
+
+    asyncio.run(run())
+
+
+def test_disabled_service_and_reranker(tmp_path, character_db, monkeypatch):
+    async def run():
+        service = make_service(tmp_path, character_db, enabled=False)
+        assert await service.search("甘雨") == []
+        assert not service.client.calls
+        service = make_service(tmp_path, character_db, rerank_enabled=False, min_similarity=-1)
+
+        async def unexpected(*args):
+            pytest.fail("重排关闭后仍调用接口")
+
+        monkeypatch.setattr(service.client, "rerank", unexpected)
+        assert len(await service.search("初音")) == 3
+
+    asyncio.run(run())

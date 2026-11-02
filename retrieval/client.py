@@ -16,12 +16,16 @@ class SiliconFlowClient:
         api_key: str,
         embedding_url: str = "https://api.siliconflow.cn/v1/embeddings",
         embedding_model: str = "Qwen/Qwen3-Embedding-4B",
+        rerank_url: str = "https://api.siliconflow.cn/v1/rerank",
+        rerank_model: str = "Qwen/Qwen3-Reranker-4B",
         timeout: float = 60,
         batch_size: int = 32,
     ):
         self.api_key = api_key
         self.embedding_url = embedding_url
         self.embedding_model = embedding_model
+        self.rerank_url = rerank_url
+        self.rerank_model = rerank_model
         self.timeout = max(1, float(timeout))
         self.batch_size = max(1, min(128, int(batch_size)))
 
@@ -60,6 +64,33 @@ class SiliconFlowClient:
         if not batches:
             raise RetrievalError("待嵌入文本不能为空")
         return await asyncio.to_thread(np.concatenate, batches, axis=0)
+
+    async def rerank(self, query: str, records: list) -> list[tuple[int, float]]:
+        """返回候选原始位置与相关度，调用方据位置映射回原记录。"""
+        if not records:
+            return []
+        result = await self._post(self.rerank_url, {
+            "model": self.rerank_model,
+            "query": query,
+            "documents": [record.text for record in records],
+            "return_documents": False,
+            "top_n": len(records),
+        })
+        results = result.get("results")
+        if not isinstance(results, list) or len(results) > len(records):
+            raise RetrievalError("重排响应数量异常")
+        parsed = []
+        seen = set()
+        for item in results:
+            if not isinstance(item, dict):
+                raise RetrievalError("重排响应格式异常")
+            index, score = item.get("index"), item.get("relevance_score")
+            if (type(index) is not int or not 0 <= index < len(records) or index in seen
+                    or type(score) not in (int, float) or not np.isfinite(score)):
+                raise RetrievalError("重排响应索引或分数异常")
+            seen.add(index)
+            parsed.append((index, float(score)))
+        return sorted(parsed, key=lambda item: item[1], reverse=True)
 
     @staticmethod
     def _parse_embeddings(result: dict, count: int) -> np.ndarray:

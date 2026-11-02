@@ -24,6 +24,23 @@ class VectorIndex:
             raise RetrievalError("索引包含无效向量")
         self.records = records
         self.vectors = vectors / norms
+        self._positions = {(record.source, record.record_id): i for i, record in enumerate(records)}
+
+    def score_records(self, records: list[TagRecord], query: np.ndarray) -> list[tuple[TagRecord, float]]:
+        """给名称匹配补充余弦分数，确保重排故障时也按真实相似度降级。"""
+        query = np.asarray(query, dtype=np.float32)
+        if query.shape != (self.vectors.shape[1],) or not np.isfinite(query).all():
+            raise RetrievalError("查询向量维度或数值异常")
+        norm = np.linalg.norm(query)
+        if not np.isfinite(norm) or norm == 0:
+            raise RetrievalError("查询向量无效")
+        query = query / norm
+        results = []
+        for record in records:
+            position = self._positions.get((record.source, record.record_id))
+            score = float(self.vectors[position] @ query) if position is not None else -1.0
+            results.append((record, score))
+        return results
 
     def search(self, query: np.ndarray, limit: int = 30, min_similarity: float = 0.45,
                copyright: str = "") -> list[tuple[TagRecord, float]]:
