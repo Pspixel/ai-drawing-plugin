@@ -243,7 +243,7 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 
 #### `/ch` - 撤回机器人消息
 
-回复机器人发送的目标消息后使用 `/ch` 可撤回该消息；不回复时尝试撤回本会话最近发送的图片。撤回功能使用 NapCat HTTP API，相关地址和令牌在 `[recall]` 中配置。
+回复机器人发送的目标消息后使用 `/ch` 可撤回该消息；不回复时尝试撤回本会话最近发送的图片。撤回功能使用 NapCat HTTP API，相关地址和令牌在 `[recall]` 中配置。若无法从数据库确认目标消息的发送者或平台 ID，插件会拒绝撤回，避免误删其他消息。
 
 ## ⚙️ 配置说明
 
@@ -400,6 +400,31 @@ enabled = true
 - 可以组合多个画师：`(naga u:1.1), (tyakomes:0.95), henreader`
 
 **提示：** 画师标签会直接影响生成图像的艺术风格，建议根据实际效果调整权重值。
+
+### 消息撤回配置
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `recall.auto_recall_enabled` | bool | `false` | 是否在绘图后自动撤回图片 |
+| `recall.auto_recall_delay` | int | `60` | 自动撤回延迟时间（秒） |
+| `recall.group_mode` | string | `whitelist` | 群聊自动撤回模式：白名单群不撤回；黑名单仅名单内群撤回 |
+| `recall.group_ids` | list | `[]` | 自动撤回群聊黑白名单，支持字符串或数字群号 |
+| `recall.max_recall_time_limit` | int | `120` | 允许撤回的最大消息年龄（秒） |
+| `recall.napcat_api_url` | string | `http://localhost:3000` | NapCat HTTP API 地址 |
+| `recall.napcat_api_token` | string | `""` | NapCat HTTP API Token，可留空 |
+
+白名单模式下，名单内群不会自动撤回；黑名单模式下，只有名单内群会自动撤回。私聊不受群名单影响。智能绘图 Action 和 `/draw` 命令的每张图片都会单独追踪，连续发送多张图片时分别撤回；无法唯一确认平台消息 ID 时会跳过自动撤回，不会改撤其他消息。
+
+```toml
+[recall]
+auto_recall_enabled = true
+auto_recall_delay = 60
+group_mode = "whitelist"
+group_ids = ["123456789"]
+max_recall_time_limit = 120
+napcat_api_url = "http://localhost:3000"
+napcat_api_token = ""
+```
 
 ### 图像审查配置
 

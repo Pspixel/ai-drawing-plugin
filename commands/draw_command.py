@@ -1,9 +1,12 @@
 """绘图命令 - /draw"""
+import asyncio
 import logging
+import time
 from typing import Tuple
 from src.plugin_system import BaseCommand
 from ..sd_client import StableDiffusionClient
 from ..image_review import ImageReviewer
+from ..utils import RecallManager
 from .module_commands import get_active_modules
 from .sampler_commands import get_active_sampler, get_active_scheduler, get_active_upscaler
 
@@ -131,8 +134,55 @@ class DrawCommand(BaseCommand):
                         await self.send_text(block_message)
                         return False, f"图片未通过审查: {reason}", True
 
-                # 发送图像
-                await self.send_image(image_base64)
+                chat_stream = getattr(getattr(self, "message", None), "chat_stream", None)
+                stream_id = getattr(chat_stream, "stream_id", None)
+                if not stream_id:
+                    await self.send_text("❌ 无法获取当前会话，图片未发送")
+                    return False, "无法获取当前会话", True
+
+                sent_context = RecallManager.begin_sent_image(
+                    chat_id=stream_id,
+                    stream_id=stream_id,
+                )
+                try:
+                    image_sent = await self.send_image(image_base64)
+                except Exception:
+                    RecallManager.cancel_sent_image(stream_id, sent_context)
+                    raise
+                if not image_sent:
+                    RecallManager.cancel_sent_image(stream_id, sent_context)
+                    await self.send_text("❌ 图片发送失败")
+                    return False, "图片发送失败", True
+
+                sent_context["send_completed_at"] = time.time()
+                asyncio.create_task(
+                    RecallManager.capture_sent_image(
+                        stream_id,
+                        sent_context,
+                        max_recall_time_limit=self.get_config("recall.max_recall_time_limit", 120),
+                    )
+                )
+
+                auto_recall_enabled = self.get_config("recall.auto_recall_enabled", False)
+                group_info = getattr(chat_stream, "group_info", None)
+                group_id = getattr(group_info, "group_id", None) if group_info else None
+                group_mode = self.get_config("recall.group_mode", "whitelist")
+                group_ids = self.get_config("recall.group_ids", [])
+                group_allowed = (
+                    not group_info
+                    or RecallManager.should_auto_recall_group(group_id, group_mode, group_ids)
+                )
+                if auto_recall_enabled and group_allowed:
+                    asyncio.create_task(
+                        RecallManager.auto_recall_after_delay(
+                            delay=self.get_config("recall.auto_recall_delay", 60),
+                            chat_id=stream_id,
+                            context=sent_context,
+                            napcat_api_url=self.get_config("recall.napcat_api_url", "http://localhost:3000"),
+                            napcat_api_token=self.get_config("recall.napcat_api_token", ""),
+                            max_recall_time_limit=self.get_config("recall.max_recall_time_limit", 120),
+                        )
+                    )
 
                 # 发送成功提示
                 await self.send_text("✅ 图片生成完成！")

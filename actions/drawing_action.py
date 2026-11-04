@@ -273,37 +273,51 @@ class AIDrawingAction(BaseAction):
                         await self.send_text(block_message)
                         return False, f"图片未通过审查: {reason}"
 
-                # 发送图像
-                await self.send_image(image_base64)
-
-                # 追踪发送的消息（用于撤回）。发图后稍等 echo，尽量记下整数平台 ID。
-                sent_at = time.time()
-                RecallManager.track_sent_message(
+                # 发送前登记唯一追踪记录，后续定时任务只会撤回这张图片。
+                sent_context = RecallManager.begin_sent_image(
                     chat_id=self.chat_id,
-                    context={
-                        "stream_id": self.chat_stream.stream_id,
-                        "timestamp": sent_at,
-                        "message_type": "image",
-                    },
+                    stream_id=self.chat_stream.stream_id,
+                    timestamp=time.time(),
                 )
+                try:
+                    image_sent = await self.send_image(image_base64)
+                except Exception:
+                    RecallManager.cancel_sent_image(self.chat_id, sent_context)
+                    raise
+                if not image_sent:
+                    RecallManager.cancel_sent_image(self.chat_id, sent_context)
+                    return False, "图片发送失败"
+
+                sent_context["send_completed_at"] = time.time()
                 asyncio.create_task(
                     RecallManager.capture_sent_image(
-                        chat_id=self.chat_id,
-                        stream_id=self.chat_stream.stream_id,
-                        timestamp=sent_at,
+                        self.chat_id,
+                        sent_context,
+                        max_recall_time_limit=self.get_config("recall.max_recall_time_limit", 120),
                     )
                 )
 
                 # 如果启用了自动撤回
                 auto_recall_enabled = self.get_config("recall.auto_recall_enabled", False)
-                if auto_recall_enabled:
+                group_mode = self.get_config("recall.group_mode", "whitelist")
+                group_ids = self.get_config("recall.group_ids", [])
+                group_allowed = (
+                    not self.is_group
+                    or RecallManager.should_auto_recall_group(self.group_id, group_mode, group_ids)
+                )
+                if auto_recall_enabled and group_allowed:
                     auto_recall_delay = self.get_config("recall.auto_recall_delay", 60)
                     napcat_api_url = self.get_config("recall.napcat_api_url", "http://localhost:3000")
                     napcat_api_token = self.get_config("recall.napcat_api_token", "")
                     # 创建异步任务执行延迟撤回
                     asyncio.create_task(
-                        self._auto_recall_after_delay(
-                            auto_recall_delay, napcat_api_url, napcat_api_token
+                        RecallManager.auto_recall_after_delay(
+                            delay=auto_recall_delay,
+                            chat_id=self.chat_id,
+                            context=sent_context,
+                            napcat_api_url=napcat_api_url,
+                            napcat_api_token=napcat_api_token,
+                            max_recall_time_limit=self.get_config("recall.max_recall_time_limit", 120),
                         )
                     )
 
@@ -356,34 +370,6 @@ class AIDrawingAction(BaseAction):
             return text.strip()
         except Exception:
             return ""
-
-    async def _auto_recall_after_delay(
-        self, delay: int, napcat_api_url: str, napcat_api_token: str = ""
-    ) -> None:
-        """延迟后自动撤回消息
-
-        Args:
-            delay: 延迟时间（秒）
-            napcat_api_url: NapCat API 地址
-        """
-        try:
-            # 等待指定时间
-            await asyncio.sleep(delay)
-
-            # 执行撤回
-            success, msg = await RecallManager.recall_latest_image(
-                chat_id=self.chat_id,
-                napcat_api_url=napcat_api_url,
-                napcat_api_token=napcat_api_token,
-            )
-
-            if success:
-                logger.info(f"自动撤回成功: chat_id={self.chat_id}")
-            else:
-                logger.warning(f"自动撤回失败: chat_id={self.chat_id}, reason={msg}")
-
-        except Exception as e:
-            logger.error(f"自动撤回时发生异常: {e}", exc_info=True)
 
     async def _review_image(self, image_base64: str) -> Tuple[bool, str]:
         """审查图像是否违规

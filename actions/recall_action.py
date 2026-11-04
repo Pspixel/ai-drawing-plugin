@@ -33,6 +33,7 @@ class RecallAction(BaseAction):
         try:
             napcat_api_url = self.get_config("recall.napcat_api_url", "http://localhost:3000")
             napcat_api_token = self.get_config("recall.napcat_api_token", "")
+            max_recall_time_limit = self.get_config("recall.max_recall_time_limit", 120)
 
             # 从回复消息中提取要撤回的目标消息ID（用户回复了哪条消息）
             target_message_id = RecallManager.extract_reply_id(self)
@@ -43,6 +44,7 @@ class RecallAction(BaseAction):
                     message_id=target_message_id,
                     napcat_api_url=napcat_api_url,
                     napcat_api_token=napcat_api_token,
+                    max_recall_time_limit=max_recall_time_limit,
                 )
             else:
                 # 如果用户没有回复特定消息，撤回最近发送的消息
@@ -51,6 +53,7 @@ class RecallAction(BaseAction):
                     napcat_api_url=napcat_api_url,
                     napcat_api_token=napcat_api_token,
                     prefer_image=False,
+                    max_recall_time_limit=max_recall_time_limit,
                 )
 
             if success:

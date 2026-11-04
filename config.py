@@ -262,6 +262,19 @@ CONFIG_SCHEMA = {
             default=60,
             description="自动撤回延迟时间（秒），默认 60 秒"
         ),
+        "group_mode": ConfigField(
+            type=str,
+            default="whitelist",
+            description="群聊自动撤回模式: whitelist(白名单群不撤回) / blacklist(黑名单群才撤回)",
+            example="whitelist",
+        ),
+        "group_ids": ConfigField(
+            type=list,
+            default=[],
+            description='群聊自动撤回黑白名单群ID列表（配合 group_mode 使用）。TOML 示例: group_ids = ["123456789", "987654321"]',
+            item_type="string",
+            hint="建议填写字符串类型（带引号）。白名单模式: 名单内群不自动撤回; 黑名单模式: 仅名单内群自动撤回",
+        ),
         "max_recall_time_limit": ConfigField(
             type=int,
             default=120,

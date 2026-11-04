@@ -81,7 +81,7 @@ Tool 使用 `retrieval/service.py` 检索。`retrieval/source.py` 将角色数�
 
 ### 撤回与审查
 
-`actions/recall_action.py` 与 `commands/recall_command.py` 共用 `utils/recall_manager.py`，通过 NapCat HTTP API 撤回机器人消息。绘图组件也可按 `[recall]` 配置安排自动撤回。
+`actions/recall_action.py` 与 `commands/recall_command.py` 共用 `utils/recall_manager.py`，通过 NapCat HTTP API 撤回机器人消息。智能绘图和 `/draw` 按 `[recall]` 配置为每张图片建立独立的自动撤回任务，并可通过群聊黑白名单控制自动撤回范围。
 
 `image_review.py` 封装视觉模型审查，并依据 `[image_review]` 中的群聊和私聊名单决定是否审查。配置入口见 [README 的图像审查说明](../README.md#图像审查配置)。
 

@@ -20,6 +20,7 @@ class RecallCommand(BaseCommand):
         try:
             napcat_api_url = self.get_config("recall.napcat_api_url", "http://localhost:3000")
             napcat_api_token = self.get_config("recall.napcat_api_token", "")
+            max_recall_time_limit = self.get_config("recall.max_recall_time_limit", 120)
             reply_id = RecallManager.extract_reply_id(self)
 
             if reply_id:
@@ -31,11 +32,11 @@ class RecallCommand(BaseCommand):
                     message_id=reply_id,
                     napcat_api_url=napcat_api_url,
                     napcat_api_token=napcat_api_token,
+                    max_recall_time_limit=max_recall_time_limit,
                 )
             else:
-                chat_id = getattr(self, "chat_id", None) or getattr(
-                    getattr(self, "chat_stream", None), "stream_id", None
-                )
+                chat_stream = getattr(getattr(self, "message", None), "chat_stream", None)
+                chat_id = getattr(chat_stream, "stream_id", None)
                 if not chat_id:
                     await self.send_text("请回复要撤回的消息后使用 /ch 命令")
                     return False, "未回复消息", True
@@ -43,6 +44,7 @@ class RecallCommand(BaseCommand):
                     chat_id=chat_id,
                     napcat_api_url=napcat_api_url,
                     napcat_api_token=napcat_api_token,
+                    max_recall_time_limit=max_recall_time_limit,
                 )
 
             if success:
