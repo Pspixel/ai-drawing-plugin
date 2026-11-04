@@ -144,6 +144,14 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 
 别名：`/查角色`、`/角色标签`。从本地角色库 `data/character_tags.db` 中查询，以合并转发消息返回每个角色的缩略图、触发标签和核心标签，按记录热度（count）降序排列。角色数据库和 `thumbs/` 缩略图需在部署时准备，均不随 Git 提交。
 
+> **角色查询资源状态**：角色数据库、向量索引和角色图片均属于较大的本地二进制资源，当前暂未上传到 GitHub，后续会补充。需要使用角色标签查询时，请准备以下文件或目录：
+>
+> - `data/character_tags.db`：`/chartag` 查询和角色名称匹配所需的 SQLite 数据库。
+> - `data/character_vectors.npz`：语义检索使用的本地向量索引。配置有效的 Embedding API 密钥后，插件也可以根据角色数据库首次构建该索引；没有索引时会先降级为 SQLite 查询。
+> - `thumbs/`：角色缩略图目录。图片缺失时仍可返回文字标签，但不会显示对应缩略图。
+>
+> 在这些资源补充前，仓库中的代码和测试可以正常使用，但真实角色数据查询和带图片的结果展示无法完整工作。
+
 - 超出 `character_query.max_results`（默认 20）时只显示前 N 个，可用“角色名,作品名”缩小范围
 - 缩略图缺失的角色只返回文本；合并转发发送失败时自动降级为逐条发送
 - 注意：MaiBot 发送合并转发前会对其中每张图片调用一次识图（VLM），`storage_message=False` 也无法避免，因此不建议把 `max_results` 调得过大
