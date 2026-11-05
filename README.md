@@ -58,7 +58,38 @@ MaiBot/
 python -m pip install aiohttp numpy
 ```
 
-### 3. 配置插件
+### 3. 准备角色查询资源（可选）
+
+角色数据库和配套索引不随源码仓库分发，请从 [角色资源发布页](https://github.com/Pspixel/ai-drawing-plugin/releases/tag/character-data-v1) 按需下载。只使用绘图功能时可以跳过此步骤。
+
+| 文件 | 用途 | 是否必需 |
+| --- | --- | --- |
+| [`character_tags.db`](https://github.com/Pspixel/ai-drawing-plugin/releases/download/character-data-v1/character_tags.db) | 角色名称匹配、`/chartag` 和绘图前角色标签查询 | 使用角色查询时必需，约 56 MiB |
+| [`character_vectors.npz`](https://github.com/Pspixel/ai-drawing-plugin/releases/download/character-data-v1/character_vectors.npz) | 与上述数据库配套的预构建 4B 向量索引 | 可选，约 356 MiB |
+| [`SHA256SUMS.txt`](https://github.com/Pspixel/ai-drawing-plugin/releases/download/character-data-v1/SHA256SUMS.txt) | 用于核对下载文件的 SHA-256 校验值 | 下载资源时建议同时获取 |
+
+在下载目录中，可以用 PowerShell 计算文件的校验值，与 `SHA256SUMS.txt` 中的对应记录比较。下载其他附件时，将下面的文件名替换为相应名称：
+
+```powershell
+Get-FileHash -Algorithm SHA256 -Path .\character_tags.db
+```
+
+数据库来源于 [AnimaDex](https://github.com/zetaneko/AnimaDex)。本插件不分发角色缩略图；如需图片，请前往 AnimaDex 的 GitHub 项目，按照上游说明获取并使用缩略图，注意遵守其相关许可。
+
+安装前停止 MaiBot；如已有同名文件或目录，先备份。将数据库和可选的向量索引放入插件目录的 `data/`，不存在时自行创建该目录；如已自行取得缩略图，将图片放入插件根目录的 `thumbs/`。安装后的结构应为：
+
+```text
+MaiBot/plugins/ai_drawing_plugin/
+├── plugin.py
+├── data/
+│   ├── character_tags.db
+│   └── character_vectors.npz  # 可选
+└── thumbs/                    # 可选，直接包含缩略图文件
+```
+
+数据库是角色查询的基础；没有缩略图时仍可返回文字。本地验证时，当前数据库有两条记录未找到对应缩略图；图片是否齐全以实际取得的资源为准。重启后可以发送 `/chartag 甘雨` 验证数据库查询。
+
+### 4. 配置插件
 
 首次启动 MaiBot 后，插件会自动生成配置文件 `config.toml`。
 
@@ -83,7 +114,7 @@ enable_hr = false  # 是否启用高分修复
 appearance_description = "a cute anime girl with blue hair"  # 机器人外观描述
 ```
 
-### 4. 重启 MaiBot
+### 5. 重启 MaiBot
 
 重启后插件即可生效。
 
@@ -112,16 +143,24 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 机器人: [使用动漫风格的 tag 组合生成图片]
 ```
 
-命名角色的智能绘图可先调用 `character_tag_lookup`，通过 SQLite 名称匹配、向量召回与重排获得标签事实。配置与规划前桥接说明见 [角色标签智能检索](docs/TAG_RETRIEVAL_GUIDE.md)。API 密钥留空时只查询 SQLite；现有 `/chartag` 查询行为保持不变。
+#### 绘图前获取角色标签
+
+例如用户说“画原神的甘雨在雪地里”时，插件可以在规划绘图 Action 前获取角色标签：
+
+1. 插件识别绘图请求，由 MaiBot 的 `tool_use` 模型判断是否包含明确角色，并调用 `character_tag_lookup` 查询。
+2. 工具从角色库查询角色名称、作品、触发标签和核心外观标签，将结果放入当前会话的规划上下文。
+3. 规划器生成绘图 Action 参数时可以参考这些标签，结合用户要求组装绘图提示词。
+
+要使用这个流程，需要安装上述角色数据库，在 MaiBot 本体 `config/bot_config.toml` 中启用 `[tool].enable_tool`，并配置支持工具调用的 `tool_use` 任务模型。插件配置中的 `tag_retrieval.enabled` 和 `tag_retrieval.prefetch_before_plan` 也需保持开启，默认均为 `true`。工具识别和最终提示词由模型决定，不能保证每次都调用或采用检索结果；查询失败时继续原有绘图流程。`/draw` 和 `/chartag` 使用各自的命令流程，不经过此绘图 Action 前的预查询。完整配置见 [角色标签智能检索指南](docs/TAG_RETRIEVAL_GUIDE.md)。
 
 #### 角色标签索引与缓存
 
-角色检索采用“首次全库向量化、本地缓存、后续只向量化查询词”的方式：
+角色检索可以使用与数据库配套的预构建向量索引，也可以自行构建并缓存索引：
 
-- **首次构建**：配置有效的检索 API 密钥后，插件启动时会检查索引缓存。没有有效缓存时，从 `data/character_tags.db` 读取角色名、英文标识、作品、触发词和核心标签，分批发送到 Embedding API。以 36,495 个角色、默认每批 32 条计算，需要约 1,141 个串行请求，首次构建可能耗时较长。
-- **本地保存**：全部批次成功后，将向量和校验元数据保存到 `data/character_vectors.npz`。SQLite 保存原始角色数据，向量单独保存在该文件中；插件不附带预先生成的向量索引。
-- **后续查询**：只将本次角色名及可选作品名发送到 Embedding API，再用查询向量在本地缓存中计算相似度。随后将向量召回和名称匹配得到的少量候选发送到 Rerank API，默认最多约 60 条，最终返回最多 3 条；每次查询不会重新向量化整个角色库。
-- **缓存复用与重建**：重启时按数据库内容指纹、Embedding 模型 ID 和接口地址校验缓存，有效则直接加载。缓存缺失、损坏或校验不一致时才重新构建全库索引。
+- **预构建索引**：配套的 `character_vectors.npz` 使用 `Qwen/Qwen3-Embedding-4B` 和 `https://api.siliconflow.cn/v1/embeddings`，与插件默认配置一致。它不随源码仓库分发，需要单独准备。
+- **使用条件**：配置有效的 `tag_retrieval.api_key` 后才会加载和使用向量索引。密钥留空时只使用本地 SQLite 名称查询；即使下载了索引，语义查询仍需调用 Embedding API，且可能产生费用。
+- **首次构建**：配置有效密钥后，如果缓存缺失、损坏或与数据库内容指纹、Embedding 模型或接口地址不匹配，插件会重新向量化全库。以 36,495 个角色、每批 32 条计算，约需 1,141 个串行请求，可能耗时较长并产生接口费用。
+- **本地保存**：全部批次成功后，将向量和校验元数据保存到 `data/character_vectors.npz`。后续查询只向量化查询词，在本地计算相似度，再按配置对候选进行重排。
 
 首次构建期间发起角色检索，会等待索引完成后再继续绘图规划。当前没有逐批进度日志，因此可能出现日志长时间没有更新的情况；构建完成后会输出“角色向量索引就绪，记录数：…”日志。`tag_retrieval.timeout` 只限制单次接口请求，不是全库构建的总时限。
 
@@ -144,13 +183,7 @@ appearance_description = "a cute anime girl with blue hair"  # 机器人外观�
 
 别名：`/查角色`、`/角色标签`。从本地角色库 `data/character_tags.db` 中查询，以合并转发消息返回每个角色的缩略图、触发标签和核心标签，按记录热度（count）降序排列。角色数据库和 `thumbs/` 缩略图需在部署时准备，均不随 Git 提交。
 
-> **角色查询资源状态**：角色数据库、向量索引和角色图片均属于较大的本地二进制资源，当前暂未上传到 GitHub，后续会补充。需要使用角色标签查询时，请准备以下文件或目录：
->
-> - `data/character_tags.db`：`/chartag` 查询和角色名称匹配所需的 SQLite 数据库。
-> - `data/character_vectors.npz`：语义检索使用的本地向量索引。配置有效的 Embedding API 密钥后，插件也可以根据角色数据库首次构建该索引；没有索引时会先降级为 SQLite 查询。
-> - `thumbs/`：角色缩略图目录。图片缺失时仍可返回文字标签，但不会显示对应缩略图。
->
-> 在这些资源补充前，仓库中的代码和测试可以正常使用，但真实角色数据查询和带图片的结果展示无法完整工作。
+角色数据库和缩略图的准备方式见[快速开始](#3-准备角色查询资源可选)。
 
 - 超出 `character_query.max_results`（默认 20）时只显示前 N 个，可用“角色名,作品名”缩小范围
 - 缩略图缺失的角色只返回文本；合并转发发送失败时自动降级为逐条发送
