@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+import re
 import time
 import uuid
 from typing import Any, Dict, List, Optional
@@ -12,6 +13,7 @@ from src.config.config import global_config
 from src.plugin_system.apis import message_api
 
 logger = logging.getLogger("ai_drawing.recall_manager")
+RECALLED_IMAGE_PREFIX = "【该图片已撤回】"
 
 
 class RecallManager:
@@ -167,18 +169,27 @@ class RecallManager:
         return ""
 
     @classmethod
-    def get_message_by_id(cls, message_id: str) -> Any:
-        getter = getattr(message_api, "get_message_by_id", None)
-        if callable(getter):
-            return getter(message_id)
+    def _find_messages_by_id(cls, chat_id: str, message_id: Any) -> List[Any]:
         try:
             from src.common.message_repository import find_messages
 
-            messages = find_messages({"message_id": message_id}, limit=1)
-            return messages[0] if messages else None
+            return find_messages({"chat_id": chat_id, "message_id": str(message_id)}, limit=2)
         except Exception:
-            logger.exception("查询消息失败: message_id=%s", message_id)
+            logger.exception("查询消息失败: chat_id=%s, message_id=%s", chat_id, message_id)
+            return []
+
+    @classmethod
+    def get_message_by_id(cls, message_id: str, chat_id: str) -> Any:
+        messages = cls._find_messages_by_id(chat_id, message_id)
+        if len(messages) > 1:
+            logger.warning("同一会话中存在多条相同 ID 的消息: chat_id=%s, message_id=%s", chat_id, message_id)
             return None
+        return messages[0] if messages else None
+
+    @classmethod
+    def _is_recalled_image(cls, message: Any) -> bool:
+        display_message = str(cls._value(message, "display_message", "") or "")
+        return display_message.startswith(RECALLED_IMAGE_PREFIX)
 
     @classmethod
     def is_bot_message(cls, message: Any) -> bool:
@@ -236,15 +247,147 @@ class RecallManager:
         cls._recent_messages[chat_id] = [msg for msg in messages if msg is not context]
 
     @classmethod
-    def _mark_tracked_message_recalled(cls, message_id: str, platform_message_id: Any) -> None:
+    def _mark_tracked_message_recalled(cls, chat_id: str, message_id: Any, platform_message_id: Any) -> None:
         platform_id = cls._as_platform_id(platform_message_id)
-        for chat_id, messages in list(cls._recent_messages.items()):
-            for context in list(messages):
-                context_platform_id = cls._as_platform_id(context.get("platform_message_id"))
-                context_raw_id = str(context.get("raw_message_id") or "")
-                if (platform_id and context_platform_id == platform_id) or context_raw_id == str(message_id):
-                    cls.cancel_sent_image(chat_id, context)
-                    context["recalled"] = True
+        for context in list(cls._recent_messages.get(chat_id) or []):
+            context_platform_id = cls._as_platform_id(context.get("platform_message_id"))
+            context_raw_id = context.get("raw_message_id")
+            if (platform_id and context_platform_id == platform_id) or (
+                message_id not in (None, "")
+                and context_raw_id not in (None, "")
+                and str(context_raw_id) == str(message_id)
+            ):
+                cls.cancel_sent_image(chat_id, context)
+                context["recalled"] = True
+
+    @classmethod
+    def _find_recalled_image(cls, chat_id: str, platform_message_id: int, raw_message_id: Any) -> Any:
+        message_ids = {str(platform_message_id)}
+        if raw_message_id not in (None, ""):
+            message_ids.add(str(raw_message_id))
+
+        candidates = []
+        for message_id in message_ids:
+            messages = cls._find_messages_by_id(chat_id, message_id)
+            if len(messages) > 1:
+                logger.warning("撤回图片的历史消息不唯一: chat_id=%s, message_id=%s", chat_id, message_id)
+                return None
+            if messages:
+                candidates.append(messages[0])
+
+        if len(candidates) != 1:
+            logger.warning(
+                "无法唯一定位撤回图片的历史消息: chat_id=%s, platform_message_id=%s, candidates=%d",
+                chat_id,
+                platform_message_id,
+                len(candidates),
+            )
+            return None
+        message = candidates[0]
+        if (
+            not cls._is_bot_message(message)
+            or not cls._is_image_message(message)
+            or cls._platform_message_id(message) != platform_message_id
+        ):
+            logger.warning("撤回图片的历史消息校验失败: chat_id=%s, platform_message_id=%s", chat_id, platform_message_id)
+            return None
+        return message
+
+    @classmethod
+    def _mark_image_history_recalled(cls, chat_id: str, message: Any) -> bool:
+        if cls._is_recalled_image(message):
+            return True
+
+        from src.common.database.database_model import Messages
+
+        record_id = cls._value(message, "id")
+        message_id = cls._value(message, "message_id")
+        bot_id = getattr(getattr(global_config, "bot", None), "qq_account", None)
+        if record_id is None or message_id in (None, "") or bot_id is None:
+            logger.warning("撤回图片的历史消息缺少定位信息: chat_id=%s, message_id=%s", chat_id, message_id)
+            return False
+
+        previous_display = cls._value(message, "display_message")
+        original_content = previous_display or cls._value(message, "processed_plain_text") or "[图片]"
+        updated = (
+            Messages.update(display_message=f"{RECALLED_IMAGE_PREFIX}{original_content}")
+            .where(
+                (Messages.id == record_id)
+                & (Messages.chat_id == chat_id)
+                & (Messages.message_id == str(message_id))
+                & (Messages.user_id == str(bot_id))
+                & (Messages.display_message == previous_display)
+            )
+            .execute()
+        )
+        if updated != 1:
+            logger.warning("图片已撤回，但历史消息状态更新失败: chat_id=%s, message_id=%s", chat_id, message_id)
+            return False
+        return True
+
+    @classmethod
+    async def _store_image_recall_action(cls, chat_id: str, platform_message_id: int, message: Any) -> bool:
+        from src.chat.message_receive.chat_stream import get_chat_manager
+        from src.plugin_system.apis import database_api
+
+        stream = get_chat_manager().get_stream(chat_id)
+        if stream is None:
+            logger.warning("图片已撤回，但未找到聊天流，无法记录撤回动作: chat_id=%s", chat_id)
+            return False
+
+        content = str(cls._value(message, "processed_plain_text", "") or "")
+        pic_id = re.search(r"\[picid:[^\]]+\]", content)
+        image_reference = f" {pic_id.group(0)}" if pic_id else ""
+        saved = await database_api.store_action_info(
+            chat_stream=stream,
+            action_build_into_prompt=True,
+            action_prompt_display=(
+                f"你已撤回之前发送的图片{image_reference}（平台消息 ID：{platform_message_id}），"
+                "该图片现在在当前聊天中不可见。"
+            ),
+            action_done=True,
+            thinking_id=f"ai_drawing_image_recall:{chat_id}:{platform_message_id}",
+            action_data={
+                "platform_message_id": str(platform_message_id),
+                "message_time": cls._value(message, "time"),
+            },
+            action_name="ai_drawing_image_recall",
+        )
+        if saved is None:
+            logger.warning("图片已撤回，但撤回动作记录保存失败: chat_id=%s, message_id=%s", chat_id, platform_message_id)
+            return False
+        return True
+
+    @classmethod
+    async def _complete_recall(
+        cls,
+        chat_id: str,
+        platform_message_id: int,
+        raw_message_id: Any = None,
+        message: Any = None,
+        image_context: Optional[Dict[str, Any]] = None,
+        stream_id: Optional[str] = None,
+    ) -> None:
+        cls._mark_tracked_message_recalled(chat_id, raw_message_id, platform_message_id)
+        if image_context is not None:
+            cls.cancel_sent_image(chat_id, image_context)
+            image_context["recalled"] = True
+        if image_context is None and not cls._is_image_message(message):
+            return
+
+        stream_id = stream_id or chat_id
+        history_message = None
+        try:
+            history_message = cls._find_recalled_image(stream_id, platform_message_id, raw_message_id)
+            if history_message is not None:
+                cls._mark_image_history_recalled(stream_id, history_message)
+        except Exception:
+            logger.exception("图片已撤回，但同步历史消息失败: chat_id=%s, message_id=%s", stream_id, platform_message_id)
+
+        try:
+            await cls._store_image_recall_action(stream_id, platform_message_id, history_message or message)
+        except Exception:
+            logger.exception("图片已撤回，但记录撤回动作失败: chat_id=%s, message_id=%s", stream_id, platform_message_id)
 
     @classmethod
     def _update_tracked_image(cls, chat_id: str, context: Dict[str, Any], target: Any) -> None:
@@ -328,7 +471,7 @@ class RecallManager:
         timestamp: Optional[float],
         prefer_image: bool = True,
     ) -> Any:
-        bot_messages = [msg for msg in messages if cls._is_bot_message(msg)]
+        bot_messages = [msg for msg in messages if cls._is_bot_message(msg) and not cls._is_recalled_image(msg)]
         if prefer_image:
             candidates = [msg for msg in bot_messages if cls._is_image_message(msg)]
         else:
@@ -390,7 +533,7 @@ class RecallManager:
         if context and context.get("recalled"):
             return False, "最近的图片已撤回"
 
-        query_chat_id = context.get("stream_id") if context else chat_id
+        query_chat_id = (context.get("stream_id") or chat_id) if context else chat_id
         # 不限图片时忽略发图追踪，直接取最近一条自己的消息。
         timestamp = context.get("timestamp") if (context and prefer_image) else None
         stored_platform_id = (
@@ -407,10 +550,10 @@ class RecallManager:
                 napcat_api_url, stored_platform_id, napcat_api_token
             )
             if success:
-                # 从列表中移除这条已撤回的消息
-                if context and context in messages:
-                    cls.cancel_sent_image(chat_id, context)
-                    context["recalled"] = True
+                await cls._complete_recall(
+                    chat_id, stored_platform_id, context.get("raw_message_id"),
+                    image_context=context, stream_id=query_chat_id,
+                )
                 return True, "消息已成功撤回"
             logger.warning("追踪记录中的平台 ID 撤回失败，改为查询数据库")
 
@@ -430,8 +573,10 @@ class RecallManager:
                 napcat_api_url, platform_msg_id, napcat_api_token
             )
             if success:
-                cls.cancel_sent_image(chat_id, context)
-                context["recalled"] = True
+                await cls._complete_recall(
+                    chat_id, platform_msg_id, context.get("raw_message_id"),
+                    image_context=context, stream_id=query_chat_id,
+                )
                 return True, "消息已成功撤回"
             return False, "调用撤回 API 失败"
 
@@ -470,14 +615,10 @@ class RecallManager:
                 napcat_api_url, platform_msg_id, napcat_api_token
             )
             if success:
-                # 从列表中移除这条已撤回的消息
-                target_matches_context = context and (
-                    str(context.get("raw_message_id") or "") == str(raw_message_id)
-                    or cls._as_platform_id(context.get("platform_message_id")) == platform_msg_id
+                await cls._complete_recall(
+                    chat_id, platform_msg_id, raw_message_id,
+                    message=bot_image_message, stream_id=query_chat_id,
                 )
-                if target_matches_context:
-                    cls.cancel_sent_image(chat_id, context)
-                    context["recalled"] = True
                 logger.info("成功撤回消息: platform_msg_id=%s", platform_msg_id)
                 return True, "消息已成功撤回"
             return False, "调用撤回 API 失败"
@@ -489,6 +630,7 @@ class RecallManager:
     async def recall_by_message_id(
         cls,
         message_id: str,
+        chat_id: str,
         napcat_api_url: str,
         napcat_api_token: str = "",
         max_recall_time_limit: Optional[int] = None,
@@ -496,7 +638,7 @@ class RecallManager:
         try:
             max_recall_time_limit = max_recall_time_limit or cls._recall_time_limit()
 
-            message = cls.get_message_by_id(message_id)
+            message = cls.get_message_by_id(message_id, chat_id)
             if message:
                 created_at = cls._value(message, "created_at") or cls._value(message, "time", 0)
                 if created_at and time.time() - created_at > max_recall_time_limit:
@@ -504,6 +646,8 @@ class RecallManager:
                     return False, f"消息发送时间过长，无法撤回（仅支持 {max_recall_time_limit} 秒内的消息）"
                 if not cls._is_bot_message(message):
                     return False, "只能撤回 bot 发送的消息"
+                if cls._is_recalled_image(message):
+                    return False, "该图片已撤回"
                 platform_msg_id = cls._platform_message_id(message, fallback=message_id)
                 logger.info(
                     "消息详情: message_id=%s, additional_config=%s, platform_msg_id=%s",
@@ -520,7 +664,7 @@ class RecallManager:
                 napcat_api_url, platform_msg_id, napcat_api_token
             )
             if success:
-                cls._mark_tracked_message_recalled(message_id, platform_msg_id)
+                await cls._complete_recall(chat_id, platform_msg_id, message_id, message=message)
                 logger.info("成功撤回消息: message_id=%s, platform_msg_id=%s", message_id, platform_msg_id)
                 return True, "消息已成功撤回"
             return False, "调用撤回 API 失败"
@@ -569,8 +713,10 @@ class RecallManager:
 
         success = await cls._call_napcat_recall_api(napcat_api_url, platform_msg_id, napcat_api_token)
         if success:
-            cls.cancel_sent_image(chat_id, context)
-            context["recalled"] = True
+            await cls._complete_recall(
+                chat_id, platform_msg_id, context.get("raw_message_id"),
+                image_context=context, stream_id=context.get("stream_id"),
+            )
             logger.info("逐图自动撤回成功: chat_id=%s, tracking_id=%s", chat_id, context.get("tracking_id"))
             return True, "消息已成功撤回"
         return False, "调用撤回 API 失败"

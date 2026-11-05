@@ -22,24 +22,25 @@ class RecallCommand(BaseCommand):
             napcat_api_token = self.get_config("recall.napcat_api_token", "")
             max_recall_time_limit = self.get_config("recall.max_recall_time_limit", 120)
             reply_id = RecallManager.extract_reply_id(self)
+            chat_stream = getattr(getattr(self, "message", None), "chat_stream", None)
+            chat_id = getattr(chat_stream, "stream_id", None)
+            if not chat_id:
+                await self.send_text("无法获取当前会话，无法撤回消息")
+                return False, "无法获取当前会话", True
 
             if reply_id:
-                replied_message = RecallManager.get_message_by_id(reply_id)
+                replied_message = RecallManager.get_message_by_id(reply_id, chat_id)
                 if replied_message and not RecallManager.is_bot_message(replied_message):
                     await self.send_text("只能撤回 bot 发送的消息")
                     return False, "不是 bot 消息", True
                 success, msg = await RecallManager.recall_by_message_id(
                     message_id=reply_id,
+                    chat_id=chat_id,
                     napcat_api_url=napcat_api_url,
                     napcat_api_token=napcat_api_token,
                     max_recall_time_limit=max_recall_time_limit,
                 )
             else:
-                chat_stream = getattr(getattr(self, "message", None), "chat_stream", None)
-                chat_id = getattr(chat_stream, "stream_id", None)
-                if not chat_id:
-                    await self.send_text("请回复要撤回的消息后使用 /ch 命令")
-                    return False, "未回复消息", True
                 success, msg = await RecallManager.recall_latest_image(
                     chat_id=chat_id,
                     napcat_api_url=napcat_api_url,

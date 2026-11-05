@@ -42,6 +42,7 @@ class RecallAction(BaseAction):
                 # 如果用户回复了某条消息，撤回被回复的那条消息
                 success, msg = await RecallManager.recall_by_message_id(
                     message_id=target_message_id,
+                    chat_id=self.chat_id,
                     napcat_api_url=napcat_api_url,
                     napcat_api_token=napcat_api_token,
                     max_recall_time_limit=max_recall_time_limit,

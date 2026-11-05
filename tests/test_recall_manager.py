@@ -124,7 +124,7 @@ def test_ambiguous_image_target_is_skipped(recall_manager, monkeypatch):
 
 def test_recall_unknown_message_id_is_rejected(recall_manager, monkeypatch):
     manager = recall_manager.manager
-    monkeypatch.setattr(manager, "get_message_by_id", lambda message_id: None)
+    monkeypatch.setattr(manager, "get_message_by_id", lambda message_id, chat_id: None)
     called = []
 
     async def recall_api(*args, **kwargs):
@@ -133,7 +133,7 @@ def test_recall_unknown_message_id_is_rejected(recall_manager, monkeypatch):
 
     monkeypatch.setattr(manager, "_call_napcat_recall_api", recall_api)
     success, message = asyncio.run(
-        manager.recall_by_message_id("987654321", "http://napcat", max_recall_time_limit=120)
+        manager.recall_by_message_id("987654321", "chat", "http://napcat", max_recall_time_limit=120)
     )
 
     assert success is False
@@ -151,13 +151,13 @@ def test_manual_recall_cancels_matching_auto_recall(recall_manager, monkeypatch)
         "sender_type": "bot",
         "user_id": "bot-1",
     }
-    monkeypatch.setattr(manager, "get_message_by_id", lambda message_id: message)
+    monkeypatch.setattr(manager, "get_message_by_id", lambda message_id, chat_id: message)
 
     async def recall_api(*args, **kwargs):
         return True
 
     monkeypatch.setattr(manager, "_call_napcat_recall_api", recall_api)
-    success, _ = asyncio.run(manager.recall_by_message_id("987654321", "http://napcat"))
+    success, _ = asyncio.run(manager.recall_by_message_id("987654321", "chat", "http://napcat"))
 
     assert success is True
     assert context["cancelled"] is True
